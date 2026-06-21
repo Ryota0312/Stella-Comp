@@ -2,6 +2,7 @@
   "name": "@stella-comp/web",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -21,4 +22,3 @@
     "typescript": "^5.6.0"
   }
 }
-

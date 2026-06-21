@@ -1,0 +1,10 @@
+{
+  "name": "stella-comp",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "web:dev": "pnpm --filter @stella-comp/web dev",
+    "web:build": "pnpm --filter @stella-comp/web build",
+    "web:typecheck": "pnpm --filter @stella-comp/web typecheck"
+  }
+}
