@@ -66,7 +66,7 @@
 
 ## 既存実装の活用
 
-`/home/ryota0312/projects/hoshikasane` の Rust 実装を調査した結果、`stellacomp` ライブラリクレートに以下の機能が存在する。
+[`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の Rust 実装を調査した結果、`stellacomp` ライブラリクレートに以下の機能が存在する。
 
 - AKAZE 特徴点検出
 - BFMatcher による特徴点マッチング
@@ -80,7 +80,7 @@
 
 ## hoshikasane からの Rust 移植方針
 
-既存実装 `/home/ryota0312/projects/hoshikasane` の `stellacomp` ライブラリクレートを、初期 MVP の Rust 画像処理コアとして `crates/stellacomp` へ移植する。
+既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` ライブラリクレートを、初期 MVP の Rust 画像処理コアとして `crates/stellacomp` へ移植する。
 
 移植対象:
 
