@@ -22,7 +22,9 @@ stella-comp/
 ### apps/web
 
 - 画像アップロード UI
+- 軽量プレビュー画像の生成
 - 基準画像と処理設定の入力
+- 低解像度の位置合わせプレビュー表示
 - ジョブ状態の表示
 - 処理結果のプレビューとダウンロード
 
@@ -30,6 +32,7 @@ stella-comp/
 
 - REST API
 - アップロードファイルの受け取り
+- 元画像と軽量プレビュー画像の対応関係管理
 - ジョブ作成と状態管理
 - Rust worker への gRPC 呼び出し
 - 成果物の配信
@@ -40,6 +43,7 @@ stella-comp/
 - 星または特徴点の検出
 - 画像間マッチング
 - 変換行列の推定
+- プレビュー画像座標系から元画像座標系への変換行列補正
 - 画像ワープ
 - 加算平均合成
 
@@ -70,6 +74,26 @@ stella-comp/
 
 大きい画像データは gRPC メッセージ本体には載せない。初期は共有ローカルディレクトリ上のファイルパスを渡し、将来は S3 互換ストレージなどの URI に置き換えられるようにする。
 
+## 画像処理パイプライン
+
+初期実装では、位置合わせと最終合成で使う画像を分ける。
+
+- 位置合わせ: ブラウザまたはサーバで生成した軽量プレビュー画像を使う
+- 最終変換: 推定した変換行列を元画像座標系へ補正して使う
+- 最終合成: RAW/TIFF などの元画像を Rust worker で処理する
+- UI プレビュー: 低解像度画像に変換行列を適用して表示する
+
+この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
+
+注意すべき座標変換:
+
+- 元画像からプレビュー画像への縮小率
+- EXIF orientation
+- RAW 現像時の回転やクロップ
+- JPEG プレビュー生成時のリサイズ方式
+
+初期 MVP では、最終画像へのアフィン変換適用と合成はサーバサイド Rust worker が担当する。ブラウザ側のアフィン適用は低解像度プレビュー用途に限定する。
+
 ## 初期 API 案
 
 - `POST /api/jobs`
@@ -91,9 +115,16 @@ service ImageProcessor {
 }
 
 message AlignAndAverageRequest {
-  repeated string input_paths = 1;
+  repeated InputImage images = 1;
   string output_path = 2;
   int32 base_image_index = 3;
+}
+
+message InputImage {
+  string source_path = 1;
+  string preview_path = 2;
+  ImageSize source_size = 3;
+  ImageSize preview_size = 4;
 }
 
 message AlignAndAverageResponse {
@@ -105,6 +136,11 @@ message ProcessingWarning {
   string code = 1;
   string message = 2;
 }
+
+message ImageSize {
+  uint32 width = 1;
+  uint32 height = 2;
+}
 ```
 
 ジョブ管理は当面 Go API 側で担当する。Rust worker は同期的な画像処理 RPC から開始し、必要になった段階で server streaming または worker 内ジョブ API を追加する。
@@ -113,9 +149,9 @@ message ProcessingWarning {
 
 1. `proto/stellacomp/v1/processor.proto` を作成する。
 2. `crates/stellacomp` に既存 Rust ライブラリを移植する。
-3. `crates/worker` に Rust gRPC server を作り、`AlignAndAverage` を実装する。
-4. Go API でアップロード、ジョブ作成、gRPC 呼び出し、結果取得を実装する。
-5. Next.js でアップロード、状態表示、結果ダウンロードの画面を実装する。
+3. `crates/worker` に Rust gRPC server を作り、軽量プレビュー画像からの `AlignAndAverage` を実装する。
+4. Go API で元画像と軽量プレビュー画像のアップロード、ジョブ作成、gRPC 呼び出し、結果取得を実装する。
+5. Next.js でアップロード、軽量プレビュー生成、状態表示、低解像度プレビュー、結果ダウンロードの画面を実装する。
 6. サンプル CR3/TIFF を使った回帰テストを追加する。
 
 ## 注意点
@@ -124,3 +160,4 @@ message ProcessingWarning {
 - 既存 `hoshikasane` の `convert_to_dynamic_image` は拡張子の大文字小文字や `tif` を十分に扱っていない。Web入力では正規化とバリデーションを追加する。
 - OpenCV 依存はローカル環境差が出やすいので、早い段階で devcontainer またはセットアップ手順を固定する。
 - ローカル開発では Go API と Rust worker の2プロセスを起動する必要がある。起動手順は mise task または Makefile にまとめる。
+- プレビュー画像だけで推定した変換行列が元画像に正しく適用できるよう、サイズと回転情報を必ず保存する。

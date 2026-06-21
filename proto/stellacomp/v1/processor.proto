@@ -9,9 +9,16 @@ service ImageProcessor {
 }
 
 message AlignAndAverageRequest {
-  repeated string input_paths = 1;
+  repeated InputImage images = 1;
   string output_path = 2;
   int32 base_image_index = 3;
+}
+
+message InputImage {
+  string source_path = 1;
+  string preview_path = 2;
+  ImageSize source_size = 3;
+  ImageSize preview_size = 4;
 }
 
 message AlignAndAverageResponse {
@@ -24,3 +31,7 @@ message ProcessingWarning {
   string message = 2;
 }
 
+message ImageSize {
+  uint32 width = 1;
+  uint32 height = 2;
+}
