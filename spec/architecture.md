@@ -86,7 +86,7 @@ stella-comp/
 
 この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
 
-初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。CR2/CR3 は D&D では受け付けるが、埋め込み JPEG 抽出または WASM デコーダの導入までは `RAW pending` として扱う。
+初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。CR3 は Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出して軽量プレビュー生成に使う。CR2 など未対応 RAW は、埋め込み JPEG 抽出または WASM デコーダの導入までは `RAW pending` として扱う。
 
 注意すべき座標変換:
 

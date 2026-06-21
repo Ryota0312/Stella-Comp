@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPreviewJpeg, extractEmbeddedJpegFromRaw } from "./previewGeneration";
 
 type QueueStatus =
   | "queued"
@@ -58,6 +59,7 @@ const resultRows = [
 export function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrlsRef = useRef(new Set<string>());
+  const previewQueueRef = useRef(Promise.resolve());
   const [items, setItems] = useState<QueueItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -128,11 +130,46 @@ export function UploadWorkspace() {
     });
 
     for (const item of nextItems) {
-      void generatePreview(item);
+      previewQueueRef.current = previewQueueRef.current
+        .then(() => generatePreview(item))
+        .catch(() => undefined);
     }
   }
 
   async function generatePreview(item: QueueItem) {
+    if (item.extension === "cr3") {
+      updateItem(item.id, {
+        status: "generating",
+        note: "Extracting embedded JPEG",
+      });
+
+      try {
+        const embeddedPreview = await extractEmbeddedJpegFromRaw(item.file);
+        const preview = await createPreviewJpeg(embeddedPreview.blob, 2048, 0.82);
+        const previewUrl = URL.createObjectURL(preview.blob);
+        previewUrlsRef.current.add(previewUrl);
+
+        updateItem(item.id, {
+          status: "ready",
+          note: `CR3 preview extracted (${formatBytes(embeddedPreview.extractedBytes)})`,
+          previewBlob: preview.blob,
+          previewSize: preview.blob.size,
+          previewUrl,
+          width: preview.width,
+          height: preview.height,
+        });
+      } catch (error) {
+        updateItem(item.id, {
+          status: "raw-pending",
+          note:
+            error instanceof Error
+              ? `CR3 preview unavailable: ${error.message}`
+              : "CR3 preview unavailable",
+        });
+      }
+      return;
+    }
+
     if (rawExtensions.has(item.extension)) {
       updateItem(item.id, {
         status: "raw-pending",
@@ -561,44 +598,6 @@ function createQueueItem(file: File): QueueItem {
     status: "queued",
     note: "Queued",
   };
-}
-
-async function createPreviewJpeg(file: File, maxEdge: number, quality: number) {
-  const bitmap = await createImageBitmap(file, {
-    imageOrientation: "from-image",
-    resizeQuality: "high",
-  });
-  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const width = Math.max(1, Math.round(bitmap.width * scale));
-  const height = Math.max(1, Math.round(bitmap.height * scale));
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-
-  const context = canvas.getContext("2d");
-  if (!context) {
-    bitmap.close();
-    throw new Error("Canvas is unavailable");
-  }
-
-  context.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (result) => {
-        if (result) {
-          resolve(result);
-        } else {
-          reject(new Error("JPEG encoding failed"));
-        }
-      },
-      "image/jpeg",
-      quality,
-    );
-  });
-
-  return { blob, width, height };
 }
 
 function getExtension(fileName: string) {
