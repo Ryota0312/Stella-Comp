@@ -78,6 +78,36 @@
 
 新規プロジェクトでは、この処理を Rust worker として取り込み、Go API から gRPC でジョブ単位に呼び出す。位置合わせは軽量プレビュー画像、最終変換と合成は元画像を使う構成へ拡張する。
 
+## hoshikasane からの Rust 移植方針
+
+既存実装 `/home/ryota0312/projects/hoshikasane` の `stellacomp` ライブラリクレートを、初期 MVP の Rust 画像処理コアとして `crates/stellacomp` へ移植する。
+
+移植対象:
+
+- `calc.rs`
+  - AKAZE 特徴点検出
+  - BFMatcher による特徴点マッチング
+- `imageproc.rs`
+  - 比較明合成
+  - 加算平均合成
+  - 二値化
+- `utils.rs`
+  - `DynamicImage` と OpenCV `Mat` の相互変換
+  - CR3/TIFF/JPEG などのファイル読み込み
+- CLI の `AffineConvert` にある処理
+  - 対応点抽出
+  - RANSAC によるアフィン推定
+  - `warp_affine` による位置合わせ
+
+新しい `crates/stellacomp` では、CLI 向けの処理を worker から呼びやすいライブラリ API に整理する。初期 API は `AlignAndAverageInput` を受け取り、複数画像の位置合わせと加算平均合成を行い、成果物を `output_path` に保存する。
+
+初回移植時に修正する点:
+
+- 既存の `average` は2枚ずつ平均するため、3枚以上では厳密な算術平均にならない。MVP では累積和ベースの `average_images` を追加する。
+- 拡張子判定は `CR3` と `tiff` に偏っているため、大小文字を正規化し、`jpg/jpeg/tif/tiff/cr3` を扱う。
+- CLI 直下にあったアフィン推定とワープ処理は、`align_and_average` の内部処理として `crates/stellacomp` に移す。
+- `proto` の `source_path` と `preview_path` は、MVP では JPEG-only 縦断を優先し、`preview_path` があれば位置合わせ入力として使う。元画像側の RAW/TIFF 反映と座標変換補正は後続で拡張する。
+
 ## 主要な未決定事項
 
 - Rust worker のプロセス管理方式: ローカル同居プロセス、Docker Compose、または将来の独立デプロイ

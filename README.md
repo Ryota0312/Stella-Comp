@@ -6,6 +6,8 @@
 
 このリポジトリではツールバージョンを mise で管理します。JavaScript / pnpm 関連の管理ファイルは `apps/web` 配下に寄せています。
 
+Rust の画像処理コアは OpenCV に依存します。Rust workspace をチェックまたは worker を起動する前に、`pkg-config` から `opencv4` を検出できるようにしてください。
+
 ```sh
 mise install
 cd apps/web
@@ -24,6 +26,14 @@ GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache mise exec -- go run ./cmd/api
 ```
 
 Go API は標準で `http://localhost:8080` を使います。
+
+Rust worker:
+
+```sh
+mise exec -- cargo run -p worker
+```
+
+Rust worker は標準で `[::1]:50051` を使います。変更する場合は `STELLA_COMP_WORKER_ADDR` を指定してください。
 
 Next.js:
 
@@ -91,10 +101,18 @@ cd apps/api
 GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache mise exec -- go test ./...
 ```
 
+Rust workspace のチェック:
+
+```sh
+mise exec -- cargo check
+```
+
 ## 開発メモ
 
 - `apps/web` は TypeScript + Next.js のフロントエンドです。
 - `apps/api` は Go + gin の API サーバーです。
+- `crates/stellacomp` は `hoshikasane/stellacomp` から移植した画像処理コアです。
+- `crates/worker` は Protocol Buffers の `ImageProcessor` を実装する Rust gRPC server です。
 - RAW/CR3 ファイルはブラウザに D&D できます。
 - CR3 は Web Worker で埋め込み JPEG 候補を抽出し、プレビュー JPEG 生成に使います。
 - CR2 など未対応 RAW は現時点では `RAW pending` として扱います。

@@ -1,0 +1,10 @@
+[package]
+name = "stellacomp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+image = "0.24"
+opencv = "0.91.3"
+rawler = "0.6.0"
+

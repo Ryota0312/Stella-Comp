@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "crates/stellacomp",
+    "crates/worker",
+]
+resolver = "2"
+
