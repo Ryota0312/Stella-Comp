@@ -21,4 +21,19 @@
 
 ## 使用技術
 
-TBD
+mise でツールバージョンを管理する。現在の固定バージョンは `.mise.toml` を参照する。
+
+- Webバックエンド: Go, gin
+- Webフロントエンド: TypeScript, Next.js
+- 星位置合わせ・合成などの画像処理コア: Rust
+- Go/Rust 間の内部 RPC: gRPC, Protocol Buffers
+
+## 開発方針
+
+- 仕様は `spec/` 配下に追加・更新する。
+- 重い画像処理は Rust worker 側へ閉じ込め、Web バックエンドはアップロード、ジョブ管理、成果物配信、gRPC client を担当する。
+- Go/Rust 間の API 境界は `proto/` 配下の Protocol Buffers 定義を正とする。
+- 大きい画像データは gRPC メッセージ本体に載せず、ローカルパスまたは将来のオブジェクトストレージ URI を渡す。
+- 既存実装 `/home/ryota0312/projects/hoshikasane` の `stellacomp` Rust ライブラリを移植候補として扱う。
+- `hoshikasane` 側に未コミット変更がある場合は、ユーザー変更として扱い、勝手に巻き戻さない。
+- 実装開始時は、まず最小の縦断スライスを作る。例: 画像アップロード、ジョブ作成、gRPC による Rust worker 呼び出し、結果画像取得。

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package stellacomp.v1;
+
+option go_package = "github.com/Ryota0312/stella-comp/apps/api/internal/gen/stellacomp/v1;stellacompv1";
+
+service ImageProcessor {
+  rpc AlignAndAverage(AlignAndAverageRequest) returns (AlignAndAverageResponse);
+}
+
+message AlignAndAverageRequest {
+  repeated string input_paths = 1;
+  string output_path = 2;
+  int32 base_image_index = 3;
+}
+
+message AlignAndAverageResponse {
+  string output_path = 1;
+  repeated ProcessingWarning warnings = 2;
+}
+
+message ProcessingWarning {
+  string code = 1;
+  string message = 2;
+}
+
