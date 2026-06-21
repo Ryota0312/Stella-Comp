@@ -6,9 +6,7 @@ settings:
 
 importers:
 
-  .: {}
-
-  apps/web:
+  .:
     dependencies:
       next:
         specifier: ^15.0.0

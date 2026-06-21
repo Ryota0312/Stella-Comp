@@ -1,7 +1,14 @@
 .DS_Store
 .idea/
+!.idea/
+!.idea/.gitignore
+!.idea/runConfigurations/
+!.idea/runConfigurations/*.xml
 .next/
 node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+apps/web/.pnpm-store/
+apps/web/.pnpm-state/
+apps/web/.xdg-data/

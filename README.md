@@ -4,10 +4,11 @@
 
 ## セットアップ
 
-このリポジトリではツールバージョンを mise で管理します。
+このリポジトリではツールバージョンを mise で管理します。JavaScript / pnpm 関連の管理ファイルは `apps/web` 配下に寄せています。
 
 ```sh
 mise install
+cd apps/web
 mise exec -- pnpm install
 ```
 
@@ -16,7 +17,8 @@ mise exec -- pnpm install
 開発サーバーはユーザー側で起動してください。Codex は原則として dev server を起動しません。
 
 ```sh
-mise exec -- pnpm web:dev
+cd apps/web
+mise exec -- pnpm dev
 ```
 
 標準では Next.js が `http://localhost:3000` を使います。
@@ -24,21 +26,26 @@ mise exec -- pnpm web:dev
 ポートを指定する場合:
 
 ```sh
-mise exec -- pnpm --filter @stella-comp/web dev --hostname 127.0.0.1 --port 3001
+cd apps/web
+mise exec -- pnpm dev --hostname 127.0.0.1 --port 3001
 ```
+
+IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev` を使ってください。`apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。
 
 ## 動作確認
 
 Web アプリの型チェック:
 
 ```sh
-mise exec -- pnpm web:typecheck
+cd apps/web
+mise exec -- pnpm typecheck
 ```
 
 Web アプリのビルド:
 
 ```sh
-mise exec -- pnpm web:build
+cd apps/web
+mise exec -- pnpm build
 ```
 
 ## 開発メモ
@@ -58,4 +65,3 @@ ps -ef | grep 'next dev' | grep -v grep
 ```
 
 別ポートで起動する場合は、上記の `--port` 指定を使ってください。
-
