@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="API Dev" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="stella-comp" />
+    <working_directory value="$PROJECT_DIR$/apps/api" />
+    <envs>
+      <env name="GOCACHE" value="$PROJECT_DIR$/apps/api/.gocache" />
+      <env name="GOMODCACHE" value="$PROJECT_DIR$/apps/api/.gomodcache" />
+    </envs>
+    <kind value="PACKAGE" />
+    <package value="github.com/Ryota0312/stella-comp/apps/api/cmd/api" />
+    <directory value="$PROJECT_DIR$/apps/api/cmd/api" />
+    <method v="2" />
+  </configuration>
+</component>

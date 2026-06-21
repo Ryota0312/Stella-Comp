@@ -2,6 +2,8 @@
 .idea/
 !.idea/
 !.idea/.gitignore
+!.idea/modules.xml
+!.idea/*.iml
 !.idea/runConfigurations/
 !.idea/runConfigurations/*.xml
 .next/
@@ -9,6 +11,9 @@ node_modules/
 dist/
 coverage/
 *.tsbuildinfo
+.data/
+apps/api/.gocache/
+apps/api/.gomodcache/
 apps/web/.pnpm-store/
 apps/web/.pnpm-state/
 apps/web/.xdg-data/

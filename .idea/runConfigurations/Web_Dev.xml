@@ -1,10 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Web Dev" type="js.build_tools.npm" factoryName="npm" path-to-package="$PROJECT_DIR$/apps/web/package.json">
+  <configuration default="false" name="Web Dev" type="js.build_tools.npm">
+    <package-json value="$PROJECT_DIR$/apps/web/package.json" />
     <command value="run" />
     <scripts>
       <script value="dev" />
     </scripts>
-    <package-manager value="/home/ryota0312/.local/share/mise/installs/pnpm/11.8.0/pnpm" />
+    <node-interpreter value="project" />
+    <package-manager value="$USER_HOME$/.local/share/mise/installs/pnpm/11.8.0/pnpm" />
+    <envs />
     <method v="2" />
   </configuration>
 </component>

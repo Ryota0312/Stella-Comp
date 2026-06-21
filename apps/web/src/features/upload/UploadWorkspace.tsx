@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { createPreviewJpeg, extractEmbeddedJpegFromRaw } from "./previewGeneration";
+import { type PreviewUploadSummary, uploadPreviewImages } from "./uploadApi";
 
 type QueueStatus =
   | "queued"
@@ -36,11 +37,6 @@ type QueueItem = {
   note: string;
 };
 
-type UploadSummary = {
-  uploadedCount: number;
-  uploadedBytes: number;
-};
-
 const browserDecodableTypes = new Set([
   "image/jpeg",
   "image/png",
@@ -63,7 +59,7 @@ export function UploadWorkspace() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
+  const [uploadSummary, setUploadSummary] = useState<PreviewUploadSummary | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -245,21 +241,13 @@ export function UploadWorkspace() {
     );
 
     const formData = new FormData();
+    formData.append("sessionId", crypto.randomUUID());
     for (const item of uploadableItems) {
       formData.append("previews", item.previewBlob as Blob, `${withoutExtension(item.name)}.jpg`);
     }
 
     try {
-      const response = await fetch("/api/preview-uploads", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Preview upload failed");
-      }
-
-      const result = (await response.json()) as UploadSummary;
+      const result = await uploadPreviewImages(formData);
       setUploadSummary(result);
       setItems((current) =>
         current.map((item) =>

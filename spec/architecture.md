@@ -75,6 +75,24 @@ stella-comp/
 
 大きい画像データは gRPC メッセージ本体には載せない。初期は共有ローカルディレクトリ上のファイルパスを渡し、将来は S3 互換ストレージなどの URI に置き換えられるようにする。
 
+## HTTP ルーティング
+
+ローカル開発では Next.js と Go API を別ポートで起動する。
+
+- Next.js: `http://localhost:3000`
+- Go API: `http://localhost:8080`
+
+フロントエンドは `NEXT_PUBLIC_API_BASE_URL` で API base URL を切り替える。未指定時は `http://localhost:8080/api` を使う。nginx 経由では `/api` を指定する。
+
+将来の docker-compose 構成では nginx を前段に置き、同一オリジンでルーティングする。
+
+```text
+/      -> Next.js
+/api/  -> Go API
+```
+
+API エンドポイントは `/api/*` 配下に固定する。大容量アップロードを扱うため、nginx ではアップロードサイズ、request buffering、proxy timeout を明示する。
+
 ## 画像処理パイプライン
 
 初期実装では、位置合わせと最終合成で使う画像を分ける。
@@ -99,6 +117,10 @@ stella-comp/
 
 ## 初期 API 案
 
+- `GET /api/health`
+  - Go API のヘルスチェック。
+- `POST /api/preview-uploads`
+  - ブラウザで生成した preview JPEG を受け取り、ローカルファイルシステムに保存する。
 - `POST /api/jobs`
   - 複数画像と処理設定を受け取り、ジョブを作成する。
 - `GET /api/jobs/:jobID`
