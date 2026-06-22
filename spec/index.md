@@ -60,6 +60,8 @@
 6. Rust worker が元画像に変換行列を適用し、加算平均合成する。
 7. Go API が処理結果と位置合わせプレビューを返す。
 
+MVP の現在実装では、preview JPEG のアップロード後に `POST /api/jobs` でジョブを作成し、Go API が Rust worker の `AlignAndAverage` を呼び出す。現段階では preview JPEG を位置合わせ入力兼合成入力として扱い、結果 JPEG を `.data/jobs/<job-id>/result.jpg` に保存する。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
+
 ブラウザ側でのアフィン変換行列の適用は、初期 MVP では最終成果物ではなく低解像度プレビュー用途に限定する。最終画像への変換行列適用と合成は Rust worker で行う。
 
 プレビュー画像で得た変換行列を元画像に適用するため、元画像サイズ、プレビュー画像サイズ、EXIF 回転、RAW 現像時のクロップや回転を追跡する。
@@ -107,6 +109,18 @@
 - 拡張子判定は `CR3` と `tiff` に偏っているため、大小文字を正規化し、`jpg/jpeg/tif/tiff/cr3` を扱う。
 - CLI 直下にあったアフィン推定とワープ処理は、`align_and_average` の内部処理として `crates/stellacomp` に移す。
 - `proto` の `source_path` と `preview_path` は、MVP では JPEG-only 縦断を優先し、`preview_path` があれば位置合わせ入力として使う。元画像側の RAW/TIFF 反映と座標変換補正は後続で拡張する。
+
+## 現在の API 実装
+
+- `POST /api/preview-uploads`
+  - `multipart/form-data` の `previews` フィールドを `.data/uploads/previews/<session-id>/` に保存する。
+- `POST /api/jobs`
+  - JSON の `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルを名前順で Rust worker に渡す。
+  - `previewPaths` を明示する場合も、対象セッションディレクトリ配下のパスだけを受け付ける。
+- `GET /api/jobs/:jobID`
+  - Go API プロセス内メモリで管理している `queued` / `running` / `completed` / `failed` の状態を返す。
+- `GET /api/jobs/:jobID/result`
+  - `completed` の場合のみ結果 JPEG を返す。
 
 ## 主要な未決定事項
 

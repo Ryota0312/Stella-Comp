@@ -122,11 +122,14 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 - `POST /api/preview-uploads`
   - ブラウザで生成した preview JPEG を受け取り、ローカルファイルシステムに保存する。
 - `POST /api/jobs`
-  - 複数画像と処理設定を受け取り、ジョブを作成する。
+  - `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルからジョブを作成する。
+  - 必要に応じて `previewPaths` を明示できるが、パスは `.data/uploads/previews/<session-id>/` 配下に制限する。
 - `GET /api/jobs/:jobID`
   - ジョブ状態、進捗、エラーを返す。
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
+
+MVP の現在実装では、Go API がジョブをプロセス内メモリで管理する。`POST /api/jobs` は `.data/uploads/previews/<session-id>/` の preview JPEG を名前順に並べ、Rust worker の `AlignAndAverage` へ渡す。worker は preview JPEG を位置合わせして加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存する。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で拡張する。
 
 ## 初期 gRPC API 案
 
@@ -175,7 +178,7 @@ message ImageSize {
 1. `proto/stellacomp/v1/processor.proto` を作成する。
 2. `crates/stellacomp` に既存 Rust ライブラリを移植する。
 3. `crates/worker` に Rust gRPC server を作り、軽量プレビュー画像からの `AlignAndAverage` を実装する。
-4. Go API で元画像と軽量プレビュー画像のアップロード、ジョブ作成、gRPC 呼び出し、結果取得を実装する。
+4. Go API で軽量プレビュー画像のアップロード、ジョブ作成、gRPC 呼び出し、結果取得を実装する。
 5. Next.js でアップロード、軽量プレビュー生成、状態表示、低解像度プレビュー、結果ダウンロードの画面を実装する。
 6. サンプル CR3/TIFF を使った回帰テストを追加する。
 

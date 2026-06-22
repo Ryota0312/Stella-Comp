@@ -51,7 +51,7 @@ cd apps/web
 mise exec -- pnpm dev --hostname 127.0.0.1 --port 3001
 ```
 
-IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev` と `API Dev` を使ってください。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。Go SDK は mise で入れた Go を IntelliJ 側に設定してください。
+IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、`API Dev`、`image proc worker` を使ってください。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。`image proc worker` は Cargo Command として workspace ルートで `cargo run -p worker` を実行します。Go SDK と Rust toolchain は mise で入れたものを IntelliJ 側に設定してください。
 
 ## エンドポイント方針
 
@@ -74,9 +74,23 @@ Go API の初期エンドポイント:
 ```text
 GET  /api/health
 POST /api/preview-uploads
+POST /api/jobs
+GET  /api/jobs/:jobID
+GET  /api/jobs/:jobID/result
 ```
 
 `POST /api/preview-uploads` は preview JPEG を `multipart/form-data` の `previews` フィールドで受け取り、`.data/uploads/previews/<session-id>/` に保存します。
+
+`POST /api/jobs` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `AlignAndAverage` へ渡します。MVP の現状では preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。ジョブ状態は Go API プロセス内のメモリで管理します。
+
+```json
+{
+  "sessionId": "session-1",
+  "baseImageIndex": 0
+}
+```
+
+`STELLA_COMP_WORKER_ADDR` は Go API と Rust worker の両方で使います。未指定時は `[::1]:50051` です。
 
 ## 動作確認
 
@@ -117,7 +131,8 @@ mise exec -- cargo check
 - CR3 は Web Worker で埋め込み JPEG 候補を抽出し、プレビュー JPEG 生成に使います。
 - CR2 など未対応 RAW は現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
-- 最終的な RAW 現像・位置合わせ・合成はサーバーサイド Rust worker で実装する方針です。
+- 現在の `/api/jobs` は、アップロード済み preview JPEG を Rust worker に渡し、位置合わせと加算平均合成を実行します。
+- 最終的な RAW 現像、プレビュー座標系から元画像座標系への変換行列補正、元画像ベースの合成は後続で拡張します。
 
 ## ポート競合時
 

@@ -2,16 +2,46 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	stellacompv1 "github.com/Ryota0312/stella-comp/apps/api/internal/gen/stellacomp/v1"
 	"github.com/gin-gonic/gin"
 )
+
+type fakeProcessor struct {
+	request *stellacompv1.AlignAndAverageRequest
+	err     error
+}
+
+func (processor *fakeProcessor) AlignAndAverage(ctx context.Context, request *stellacompv1.AlignAndAverageRequest) (*stellacompv1.AlignAndAverageResponse, error) {
+	processor.request = request
+	if processor.err != nil {
+		return nil, processor.err
+	}
+	if err := os.MkdirAll(filepath.Dir(request.GetOutputPath()), 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(request.GetOutputPath(), []byte("result"), 0o644); err != nil {
+		return nil, err
+	}
+
+	return &stellacompv1.AlignAndAverageResponse{
+		OutputPath: request.GetOutputPath(),
+		Warnings: []*stellacompv1.ProcessingWarning{
+			{Code: "TEST_WARNING", Message: "test warning"},
+		},
+	}, nil
+}
 
 func TestPreviewUploadSavesFiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -91,4 +121,125 @@ func TestPreviewUploadRequiresFiles(t *testing.T) {
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
+}
+
+func TestCreateJobProcessesUploadedPreviewSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dataDir := t.TempDir()
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", "session-1")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"0002-frame.jpg", "0001-frame.jpg"} {
+		if err := os.WriteFile(filepath.Join(sessionDir, name), []byte("preview"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	processor := &fakeProcessor{}
+	router := newRouterWithProcessor(dataDir, processor)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/jobs", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var created jobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.JobID == "" {
+		t.Fatal("expected job id")
+	}
+
+	job := waitForJobStatus(t, router, created.JobID, "completed")
+	if job.BaseImageIndex != 1 {
+		t.Fatalf("base image index = %d", job.BaseImageIndex)
+	}
+	if len(processor.request.GetImages()) != 2 {
+		t.Fatalf("worker images = %d", len(processor.request.GetImages()))
+	}
+	if !strings.HasSuffix(processor.request.GetImages()[0].GetPreviewPath(), "0001-frame.jpg") {
+		t.Fatalf("first preview path = %q", processor.request.GetImages()[0].GetPreviewPath())
+	}
+	if len(job.Warnings) != 1 || job.Warnings[0].Code != "TEST_WARNING" {
+		t.Fatalf("warnings = %#v", job.Warnings)
+	}
+
+	resultRequest := httptest.NewRequest(http.MethodGet, "/api/jobs/"+created.JobID+"/result", nil)
+	resultResponse := httptest.NewRecorder()
+	router.ServeHTTP(resultResponse, resultRequest)
+
+	if resultResponse.Code != http.StatusOK {
+		t.Fatalf("result status = %d, body = %s", resultResponse.Code, resultResponse.Body.String())
+	}
+	if resultResponse.Body.String() != "result" {
+		t.Fatalf("result body = %q", resultResponse.Body.String())
+	}
+}
+
+func TestCreateJobMarksWorkerErrorAsFailed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dataDir := t.TempDir()
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", "session-1")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sessionDir, "0001-frame.jpg"), []byte("preview"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	router := newRouterWithProcessor(dataDir, &fakeProcessor{err: errors.New("worker unavailable")})
+
+	request := httptest.NewRequest(http.MethodPost, "/api/jobs", strings.NewReader(`{"sessionId":"session-1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var created jobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	job := waitForJobStatus(t, router, created.JobID, "failed")
+	if !strings.Contains(job.Error, "worker unavailable") {
+		t.Fatalf("job error = %q", job.Error)
+	}
+}
+
+func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status string) jobResponse {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		request := httptest.NewRequest(http.MethodGet, "/api/jobs/"+jobID, nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("status response = %d, body = %s", response.Code, response.Body.String())
+		}
+
+		var job jobResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil {
+			t.Fatal(err)
+		}
+		if job.Status == status {
+			return job
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("job %s did not reach status %s", jobID, status)
+	return jobResponse{}
 }
