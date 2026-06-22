@@ -7,6 +7,9 @@ use opencv::features2d::{BFMatcher, DescriptorMatcherTraitConst, Feature2DTrait,
 use opencv::imgcodecs::IMREAD_GRAYSCALE;
 use opencv::types::{VectorOfDMatch, VectorOfKeyPoint};
 
+const AKAZE_THRESHOLD: f32 = 0.0001;
+const MAX_MATCH_DISTANCE: f32 = 60.0;
+
 pub fn matches(
     image1: &DynamicImage,
     image2: &DynamicImage,
@@ -21,7 +24,7 @@ pub fn matches(
 
     let mut good_matches = VectorOfDMatch::new();
     for m in &matches {
-        if m.distance < 20.0 {
+        if m.distance < MAX_MATCH_DISTANCE {
             good_matches.push(m);
         }
     }
@@ -32,7 +35,7 @@ pub fn matches(
 pub fn get_keypoints_and_descriptor(
     image: &DynamicImage,
 ) -> opencv::Result<(Vector<KeyPoint>, Mat)> {
-    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, 0.001, 4, 4, DIFF_PM_G2)?;
+    let mut akaze = AKAZE::create(DESCRIPTOR_MLDB, 0, 3, AKAZE_THRESHOLD, 4, 4, DIFF_PM_G2)?;
     let mut key_points = VectorOfKeyPoint::new();
     let mut descriptors = Mat::default();
     akaze.detect_and_compute(

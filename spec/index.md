@@ -62,6 +62,8 @@
 
 MVP の現在実装では、preview JPEG のアップロード後に `POST /api/jobs` でジョブを作成し、Go API が Rust worker の `AlignAndAverage` を呼び出す。現段階では preview JPEG を位置合わせ入力兼合成入力として扱い、結果 JPEG を `.data/jobs/<job-id>/result.jpg` に保存する。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
 
+preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景フレームに合わせて回転・平行移動・等方スケールの部分アフィン変換を推定する。MVP では、RANSAC で妥当な変換を推定できないフレームは `ALIGNMENT_SKIPPED` warning を付けて合成対象から外し、ジョブ全体は可能な限り完了させる。これは結果ファイル確認を優先するための暫定挙動であり、後続で星検出ベースのマッチングやより安定した変換推定へ置き換える。
+
 ブラウザ側でのアフィン変換行列の適用は、初期 MVP では最終成果物ではなく低解像度プレビュー用途に限定する。最終画像への変換行列適用と合成は Rust worker で行う。
 
 プレビュー画像で得た変換行列を元画像に適用するため、元画像サイズ、プレビュー画像サイズ、EXIF 回転、RAW 現像時のクロップや回転を追跡する。
@@ -121,6 +123,13 @@ MVP の現在実装では、preview JPEG のアップロード後に `POST /api/
   - Go API プロセス内メモリで管理している `queued` / `running` / `completed` / `failed` の状態を返す。
 - `GET /api/jobs/:jobID/result`
   - `completed` の場合のみ結果 JPEG を返す。
+
+Rust 側には preview JPEG の調査用 example として以下を置く。
+
+- `cargo run -p stellacomp --example match_diagnostics -- <base-image> <target-image>...`
+  - 基準画像と各対象画像の特徴点数、採用マッチ数を表示する。
+- `cargo run -p stellacomp --example align_and_average -- <output-path> <input-image>...`
+  - Rust core 単体で preview JPEG の位置合わせ・加算平均を実行する。
 
 ## 主要な未決定事項
 

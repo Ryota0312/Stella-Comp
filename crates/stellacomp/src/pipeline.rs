@@ -2,8 +2,10 @@ use crate::calc::matches;
 use crate::imageproc::average_images;
 use crate::utils::{convert_to_dynamic_image, dynamic_image_to_mat, mat_to_dynamic_image};
 use image::{DynamicImage, GenericImageView};
-use opencv::calib3d::{estimate_affine_2d, RANSAC};
-use opencv::core::{no_array, KeyPointTraitConst, Mat, MatTraitConst, Point2f, Scalar, Vector};
+use opencv::calib3d::{estimate_affine_partial_2d, RANSAC};
+use opencv::core::{
+    count_non_zero, KeyPointTraitConst, Mat, MatTraitConst, Point2f, Scalar, Vector,
+};
 use opencv::imgcodecs::IMREAD_COLOR;
 use opencv::imgproc::warp_affine;
 use std::fmt;
@@ -51,6 +53,8 @@ pub enum StellaCompError {
     ImageSave { path: String, message: String },
     OpenCv(String),
     InsufficientMatches { count: usize },
+    InsufficientInliers { count: i32 },
+    InvalidTransform(String),
     Average(String),
 }
 
@@ -75,6 +79,12 @@ impl fmt::Display for StellaCompError {
             StellaCompError::OpenCv(message) => write!(formatter, "OpenCV error: {message}"),
             StellaCompError::InsufficientMatches { count } => {
                 write!(formatter, "insufficient feature matches: {count}")
+            }
+            StellaCompError::InsufficientInliers { count } => {
+                write!(formatter, "insufficient RANSAC inliers: {count}")
+            }
+            StellaCompError::InvalidTransform(message) => {
+                write!(formatter, "invalid affine transform: {message}")
             }
             StellaCompError::Average(message) => {
                 write!(formatter, "average composite failed: {message}")
@@ -129,7 +139,13 @@ pub fn align_and_average(
         if index == input.base_image_index {
             aligned_images.push(image);
         } else {
-            aligned_images.push(align_to_base(&base_image, &image)?);
+            match align_to_base(&base_image, &image) {
+                Ok(aligned_image) => aligned_images.push(aligned_image),
+                Err(error) => warnings.push(ProcessingWarning {
+                    code: "ALIGNMENT_SKIPPED".to_string(),
+                    message: format!("image {index} was skipped: {error}"),
+                }),
+            }
         }
     }
 
@@ -190,10 +206,11 @@ fn align_to_base(
         );
     }
 
-    let affine = estimate_affine_2d(
+    let mut inliers = Mat::default();
+    let affine = estimate_affine_partial_2d(
         &target_points,
         &base_points,
-        &mut no_array(),
+        &mut inliers,
         RANSAC,
         3.0,
         2000,
@@ -201,6 +218,22 @@ fn align_to_base(
         10,
     )
     .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+
+    if affine.empty() {
+        return Err(StellaCompError::InvalidTransform(
+            "RANSAC could not estimate a transform".to_string(),
+        ));
+    }
+
+    let inlier_count =
+        count_non_zero(&inliers).map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    if inlier_count < 2 {
+        return Err(StellaCompError::InsufficientInliers {
+            count: inlier_count,
+        });
+    }
+
+    validate_partial_affine(&affine)?;
 
     let target_mat = dynamic_image_to_mat(target_image, IMREAD_COLOR);
     let mut converted = Mat::default();
@@ -223,4 +256,22 @@ fn align_to_base(
     }
 
     Ok(mat_to_dynamic_image(&converted))
+}
+
+fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
+    let a = *affine
+        .at_2d::<f64>(0, 0)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    let b = *affine
+        .at_2d::<f64>(1, 0)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    let scale = (a * a + b * b).sqrt();
+
+    if !(0.85..=1.15).contains(&scale) {
+        return Err(StellaCompError::InvalidTransform(format!(
+            "scale {scale:.3} is outside MVP limits"
+        )));
+    }
+
+    Ok(())
 }
