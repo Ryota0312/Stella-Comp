@@ -51,7 +51,7 @@ cd apps/web
 mise exec -- pnpm dev --hostname 127.0.0.1 --port 3001
 ```
 
-IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、`API Dev`、`image proc worker` を使ってください。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。`image proc worker` は Cargo Command として workspace ルートで `cargo run -p worker` を実行します。Go SDK と Rust toolchain は mise で入れたものを IntelliJ 側に設定してください。
+IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、`API Dev`、`image proc worker` を使ってください。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。`image proc worker` は Cargo Command として workspace ルートで `cargo run -p worker` を実行します。Go SDK と Rust toolchain は mise で入れたものを IntelliJ 側に設定してください。Rust toolchain location は `cargo`/`rustc` が直接置かれている `bin` ディレクトリ、たとえば `~/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin` を指定します。
 
 ## エンドポイント方針
 
