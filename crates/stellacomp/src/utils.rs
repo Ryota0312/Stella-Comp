@@ -38,7 +38,8 @@ pub fn dynamic_image_to_mat(image: &DynamicImage, flags: i32) -> Mat {
     image
         .write_to(&mut Cursor::new(&mut bytes), image::ImageOutputFormat::Tiff)
         .expect("failed to encode image for OpenCV");
-    imdecode(bytes.as_slice(), flags).expect("failed to decode image with OpenCV")
+    let input = Vector::<u8>::from_slice(bytes.as_slice());
+    imdecode(&input, flags).expect("failed to decode image with OpenCV")
 }
 
 pub fn mat_to_dynamic_image(mat: &Mat) -> DynamicImage {
@@ -61,7 +62,7 @@ pub fn convert_to_dynamic_image(file_path: &str) -> Result<DynamicImage, String>
             dev.develop_intermediate(&raw_image)
                 .map_err(|error| error.to_string())?
                 .to_dynamic_image()
-                .map_err(|error| error.to_string())
+                .ok_or_else(|| "failed to convert RAW image to dynamic image".to_string())
         }
         "jpg" | "jpeg" | "png" | "webp" | "avif" | "tif" | "tiff" => {
             image::open(file_path).map_err(|error| error.to_string())

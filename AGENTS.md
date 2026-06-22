@@ -41,4 +41,5 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 実装開始時は、まず最小の縦断スライスを作る。例: 画像アップロード、ジョブ作成、gRPC による Rust worker 呼び出し、結果画像取得。
 - 現在の最小縦断は preview JPEG only。`POST /api/jobs` は preview upload セッション内の JPEG を Rust worker の `AlignAndAverage` に渡し、`.data/jobs/<job-id>/result.jpg` を生成する。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
+- Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。
 - Rust workspace の検証には OpenCV 開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境では `cargo check` が失敗する。
