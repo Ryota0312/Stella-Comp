@@ -10,7 +10,14 @@ import {
   useState,
 } from "react";
 import { createPreviewJpeg, extractEmbeddedJpegFromRaw } from "./previewGeneration";
-import { type PreviewUploadSummary, uploadPreviewImages } from "./uploadApi";
+import {
+  createPreviewJob,
+  fetchJob,
+  type JobSummary,
+  jobResultUrl,
+  type PreviewUploadSummary,
+  uploadPreviewImages,
+} from "./uploadApi";
 
 type QueueStatus =
   | "queued"
@@ -45,25 +52,28 @@ const browserDecodableTypes = new Set([
 ]);
 
 const rawExtensions = new Set(["cr2", "cr3", "dng", "nef", "arw", "raf", "orf", "rw2"]);
-
-const resultRows = [
-  { label: "Aligned preview", value: "Not generated" },
-  { label: "Composite TIFF", value: "Not generated" },
-  { label: "Warnings", value: "0" },
-];
+const jobPollIntervalMs = 2500;
 
 export function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrlsRef = useRef(new Set<string>());
   const previewQueueRef = useRef(Promise.resolve());
+  const pollTimeoutRef = useRef<number | null>(null);
+  const uploadedItemIdsRef = useRef<string[]>([]);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadSummary, setUploadSummary] = useState<PreviewUploadSummary | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [job, setJob] = useState<JobSummary | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+  const [isStartingJob, setIsStartingJob] = useState(false);
 
   useEffect(() => {
     return () => {
+      if (pollTimeoutRef.current !== null) {
+        window.clearTimeout(pollTimeoutRef.current);
+      }
       for (const previewUrl of previewUrlsRef.current) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -84,6 +94,14 @@ export function UploadWorkspace() {
   const sourceBytes = items.reduce((sum, item) => sum + item.sourceSize, 0);
   const previewBytes = items.reduce((sum, item) => sum + (item.previewSize ?? 0), 0);
   const compressionRatio = sourceBytes > 0 && previewBytes > 0 ? previewBytes / sourceBytes : 0;
+  const canRunJob = uploadableCount > 0 || Boolean(uploadSummary?.uploadedCount);
+  const isJobBusy = isStartingJob || job?.status === "queued" || job?.status === "running";
+  const resultUrl = job?.status === "completed" ? jobResultUrl(job.jobId) : null;
+  const resultRows = [
+    { label: "Result JPEG", value: job?.status === "completed" ? "Generated" : "Not generated" },
+    { label: "Job status", value: job ? statusText(job.status) : "Not started" },
+    { label: "Warnings", value: `${job?.warnings?.length ?? 0}` },
+  ];
 
   function handleSelectFrames() {
     inputRef.current?.click();
@@ -97,7 +115,9 @@ export function UploadWorkspace() {
     setItems([]);
     setActiveId(null);
     setUploadSummary(null);
+    uploadedItemIdsRef.current = [];
     setUploadError(null);
+    clearJobState();
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -122,7 +142,9 @@ export function UploadWorkspace() {
       setItems((current) => [...current, ...nextItems]);
       setActiveId((current) => current ?? nextItems[0]?.id ?? null);
       setUploadSummary(null);
+      uploadedItemIdsRef.current = [];
       setUploadError(null);
+      clearJobState();
     });
 
     for (const item of nextItems) {
@@ -223,15 +245,17 @@ export function UploadWorkspace() {
     );
   }
 
-  async function uploadPreviews() {
+  async function uploadPreviews(): Promise<PreviewUploadSummary | null> {
     const uploadableItems = items.filter((item) => item.previewBlob && item.status !== "uploaded");
 
     if (!uploadableItems.length) {
-      return;
+      return uploadSummary;
     }
 
     setUploadError(null);
     setUploadSummary(null);
+    uploadedItemIdsRef.current = [];
+    clearJobState(true);
     setItems((current) =>
       current.map((item) =>
         uploadableItems.some((uploadable) => uploadable.id === item.id)
@@ -249,6 +273,8 @@ export function UploadWorkspace() {
     try {
       const result = await uploadPreviewImages(formData);
       setUploadSummary(result);
+      const nextUploadedItemIds = uploadableItems.map((item) => item.id);
+      uploadedItemIdsRef.current = nextUploadedItemIds;
       setItems((current) =>
         current.map((item) =>
           uploadableItems.some((uploadable) => uploadable.id === item.id)
@@ -256,6 +282,7 @@ export function UploadWorkspace() {
             : item,
         ),
       );
+      return result;
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Preview upload failed");
       setItems((current) =>
@@ -265,6 +292,66 @@ export function UploadWorkspace() {
             : item,
         ),
       );
+      return null;
+    }
+  }
+
+  async function runComposite() {
+    if (isJobBusy || !canRunJob) {
+      return;
+    }
+
+    setIsStartingJob(true);
+    setJobError(null);
+
+    try {
+      const summary = uploadSummary ?? (await uploadPreviews());
+      if (!summary) {
+        return;
+      }
+
+      const createdJob = await createPreviewJob(summary.sessionId, baseIndexForJob());
+      setJob(createdJob);
+      pollJob(createdJob.jobId);
+    } catch (error) {
+      setJobError(error instanceof Error ? error.message : "Job creation failed");
+    } finally {
+      setIsStartingJob(false);
+    }
+  }
+
+  function baseIndexForJob() {
+    const activeIndex = uploadedItemIdsRef.current.findIndex((id) => id === activeId);
+    return activeIndex >= 0 ? activeIndex : 0;
+  }
+
+  function pollJob(jobId: string) {
+    if (pollTimeoutRef.current !== null) {
+      window.clearTimeout(pollTimeoutRef.current);
+    }
+
+    pollTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const nextJob = await fetchJob(jobId);
+        setJob(nextJob);
+        if (nextJob.status === "queued" || nextJob.status === "running") {
+          pollJob(jobId);
+        }
+      } catch (error) {
+        setJobError(error instanceof Error ? error.message : "Job status fetch failed");
+      }
+    }, jobPollIntervalMs);
+  }
+
+  function clearJobState(preserveStarting = false) {
+    if (pollTimeoutRef.current !== null) {
+      window.clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = null;
+    }
+    setJob(null);
+    setJobError(null);
+    if (!preserveStarting) {
+      setIsStartingJob(false);
     }
   }
 
@@ -288,6 +375,11 @@ export function UploadWorkspace() {
       label: "Preview upload",
       value: uploadSummary ? `${uploadSummary.uploadedCount} uploaded` : "Not uploaded",
       tone: uploadSummary ? "active" : "muted",
+    },
+    {
+      label: "Composite job",
+      value: job ? statusText(job.status) : "Not started",
+      tone: job?.status === "failed" ? "warn" : job ? "active" : "muted",
     },
   ];
 
@@ -499,10 +591,10 @@ export function UploadWorkspace() {
             <button
               type="button"
               className="primary-action"
-              disabled={!uploadableCount}
-              onClick={uploadPreviews}
+              disabled={!canRunJob || isJobBusy}
+              onClick={runComposite}
             >
-              Upload Ready
+              {uploadSummary ? "Run Composite" : "Upload and Run"}
             </button>
           </header>
           <div className="timeline">
@@ -534,6 +626,20 @@ export function UploadWorkspace() {
               {formatBytes(uploadSummary.uploadedBytes)}).
             </p>
           ) : null}
+          {jobError ? <p className="inline-error">{jobError}</p> : null}
+          {job?.status === "failed" && job.error ? (
+            <p className="inline-error">{job.error}</p>
+          ) : null}
+          {job?.warnings?.length ? (
+            <div className="warning-list" aria-label="Job warnings">
+              {job.warnings.map((warning, index) => (
+                <p key={`${warning.code}-${index}`}>
+                  <strong>{warning.code}</strong>
+                  <span>{warning.message}</span>
+                </p>
+              ))}
+            </div>
+          ) : null}
         </section>
 
         <section className="panel panel-results">
@@ -551,13 +657,32 @@ export function UploadWorkspace() {
               </div>
             ))}
           </div>
+          <div className="result-preview">
+            {resultUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={resultUrl} alt="Composite result" />
+            ) : (
+              <span>{job ? statusText(job.status) : "No result yet"}</span>
+            )}
+          </div>
           <div className="result-actions">
-            <button type="button" className="secondary-action">
+            <a
+              className={`secondary-action link-action${resultUrl ? "" : " link-disabled"}`}
+              href={resultUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              aria-disabled={!resultUrl}
+            >
               Open Preview
-            </button>
-            <button type="button" className="primary-action">
+            </a>
+            <a
+              className={`primary-action link-action${resultUrl ? "" : " link-disabled"}`}
+              href={resultUrl ?? undefined}
+              download={job ? `stella-comp-${job.jobId}.jpg` : undefined}
+              aria-disabled={!resultUrl}
+            >
               Download Output
-            </button>
+            </a>
           </div>
         </section>
       </section>
@@ -572,6 +697,19 @@ function Metric({ label, value }: { label: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function statusText(status: JobSummary["status"]) {
+  switch (status) {
+    case "queued":
+      return "Queued";
+    case "running":
+      return "Running";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+  }
 }
 
 function createQueueItem(file: File): QueueItem {

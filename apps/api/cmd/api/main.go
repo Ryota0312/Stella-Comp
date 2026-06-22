@@ -106,6 +106,11 @@ func newRouter(dataDir string) *gin.Engine {
 }
 
 func newRouterWithProcessor(dataDir string, imageProcessor processor) *gin.Engine {
+	dataDir, err := filepath.Abs(dataDir)
+	if err != nil {
+		panic(err)
+	}
+
 	router := gin.Default()
 	router.MaxMultipartMemory = defaultMaxMultipartMemory
 	router.Use(corsForLocalDevelopment())

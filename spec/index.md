@@ -60,7 +60,7 @@
 6. Rust worker が元画像に変換行列を適用し、加算平均合成する。
 7. Go API が処理結果と位置合わせプレビューを返す。
 
-MVP の現在実装では、preview JPEG のアップロード後に `POST /api/jobs` でジョブを作成し、Go API が Rust worker の `AlignAndAverage` を呼び出す。現段階では preview JPEG を位置合わせ入力兼合成入力として扱い、結果 JPEG を `.data/jobs/<job-id>/result.jpg` に保存する。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
+MVP の現在実装では、preview JPEG のアップロード後に `POST /api/jobs` でジョブを作成し、Go API が Rust worker の `AlignAndAverage` を呼び出す。現段階では preview JPEG を位置合わせ入力兼合成入力として扱い、結果 JPEG を `.data/jobs/<job-id>/result.jpg` に保存する。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、worker へ絶対パスを渡す。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
 
 preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景フレームに合わせて回転・平行移動・等方スケールの部分アフィン変換を推定する。MVP では、RANSAC で妥当な変換を推定できないフレームは `ALIGNMENT_SKIPPED` warning を付けて合成対象から外し、ジョブ全体は可能な限り完了させる。これは結果ファイル確認を優先するための暫定挙動であり、後続で星検出ベースのマッチングやより安定した変換推定へ置き換える。
 
@@ -123,6 +123,8 @@ preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景
   - Go API プロセス内メモリで管理している `queued` / `running` / `completed` / `failed` の状態を返す。
 - `GET /api/jobs/:jobID/result`
   - `completed` の場合のみ結果 JPEG を返す。
+
+Web UI は preview JPEG のアップロード後、同じ画面から `POST /api/jobs` を呼び出して合成ジョブを作成できる。ジョブ作成後は `GET /api/jobs/:jobID` を約2.5秒間隔で polling し、`completed` になったら `GET /api/jobs/:jobID/result` を画像プレビュー、別タブ表示、ダウンロードリンクに使う。ジョブが `failed` の場合は API の error を画面に表示し、warning が返った場合は `ALIGNMENT_SKIPPED` などの code と message を Execution パネルに表示する。
 
 Rust 側には preview JPEG の調査用 example として以下を置く。
 

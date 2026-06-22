@@ -5,6 +5,26 @@ export type PreviewUploadSummary = {
   uploadedBytes: number;
 };
 
+export type JobStatus = "queued" | "running" | "completed" | "failed";
+
+export type ProcessingWarning = {
+  code: string;
+  message: string;
+};
+
+export type JobSummary = {
+  jobId: string;
+  status: JobStatus;
+  sessionId: string;
+  baseImageIndex: number;
+  previewPaths: string[];
+  outputPath?: string;
+  error?: string;
+  warnings?: ProcessingWarning[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 type UploadedPreview = {
   fieldName: string;
   fileName: string;
@@ -25,6 +45,48 @@ export async function uploadPreviewImages(formData: FormData): Promise<PreviewUp
   return (await response.json()) as PreviewUploadSummary;
 }
 
-function apiBaseUrl() {
+export async function createPreviewJob(
+  sessionId: string,
+  baseImageIndex: number,
+): Promise<JobSummary> {
+  const response = await fetch(`${apiBaseUrl()}/jobs`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ sessionId, baseImageIndex }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, "Job creation failed"));
+  }
+
+  return (await response.json()) as JobSummary;
+}
+
+export async function fetchJob(jobId: string): Promise<JobSummary> {
+  const response = await fetch(`${apiBaseUrl()}/jobs/${jobId}`);
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, "Job status fetch failed"));
+  }
+
+  return (await response.json()) as JobSummary;
+}
+
+export function jobResultUrl(jobId: string) {
+  return `${apiBaseUrl()}/jobs/${jobId}/result`;
+}
+
+export function apiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api";
+}
+
+async function responseError(response: Response, fallback: string) {
+  try {
+    const body = (await response.json()) as { error?: string };
+    return body.error ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
