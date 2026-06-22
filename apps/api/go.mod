@@ -1,6 +1,6 @@
 module github.com/Ryota0312/stella-comp/apps/api
 
-go 1.26.4
+go 1.26
 
 require (
 	github.com/gin-gonic/gin v1.11.0
