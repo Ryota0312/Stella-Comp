@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HeroMetrics } from "./components/HeroMetrics";
 import { JobStatusPanel } from "./components/JobStatusPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
@@ -10,13 +10,35 @@ import { UploadQueuePanel } from "./components/UploadQueuePanel";
 import { useCompositeJob } from "./hooks/useCompositeJob";
 import { usePreviewUpload } from "./hooks/usePreviewUpload";
 import { useUploadQueue } from "./hooks/useUploadQueue";
+import {
+  clientCompositeStatusText,
+  defaultLanguage,
+  languages,
+  type Language,
+  uploadCopy,
+} from "./i18n";
 import type { ResultRow, TimelineItem } from "./types";
-import { clientCompositeStatusText } from "./utils";
+
+const languageStorageKey = "stella-comp-language";
 
 export function UploadWorkspace() {
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window === "undefined") {
+      return defaultLanguage;
+    }
+
+    const storedLanguage = window.localStorage.getItem(languageStorageKey);
+    return languages.includes(storedLanguage as Language) ? (storedLanguage as Language) : defaultLanguage;
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
   const clearJobStateRef = useRef<(preserveStarting?: boolean) => void>(() => undefined);
+  const copy = uploadCopy[language];
+
+  useEffect(() => {
+    window.localStorage.setItem(languageStorageKey, language);
+    document.documentElement.lang = language;
+  }, [language]);
 
   const {
     activeId,
@@ -51,7 +73,7 @@ export function UploadWorkspace() {
     uploadSummary,
     uploadableCount,
     uploadedItemIdsRef,
-  } = usePreviewUpload({ items, setItems });
+  } = usePreviewUpload({ copy, items, setItems });
 
   resetUploadStateRef.current = resetUploadState;
 
@@ -74,6 +96,7 @@ export function UploadWorkspace() {
   } = useCompositeJob({
     activeId,
     canRunJob,
+    copy,
     items,
     uploadPreviews: uploadPreviewsAndClearJob,
     uploadSummary,
@@ -85,28 +108,31 @@ export function UploadWorkspace() {
   const jobTimeline = useMemo<TimelineItem[]>(
     () => [
       {
-        label: "Selected frames",
+        label: copy.timeline.selectedFrames,
         value: `${items.length}`,
         tone: items.length > 0 ? "active" : "muted",
       },
       {
-        label: "Preview generation",
-        value: `${readyCount} ready`,
+        label: copy.timeline.previewGeneration,
+        value: copy.timeline.ready(readyCount),
         tone: readyCount > 0 ? "active" : "muted",
       },
       {
-        label: "RAW extraction",
-        value: pendingRawCount > 0 ? `${pendingRawCount} pending` : "No pending RAW",
+        label: copy.timeline.rawExtraction,
+        value:
+          pendingRawCount > 0 ? copy.timeline.pending(pendingRawCount) : copy.timeline.noPendingRaw,
         tone: pendingRawCount > 0 ? "warn" : "muted",
       },
       {
-        label: "Preview upload",
-        value: uploadSummary ? `${uploadSummary.uploadedCount} uploaded` : "Not uploaded",
+        label: copy.timeline.previewUpload,
+        value: uploadSummary
+          ? copy.timeline.uploaded(uploadSummary.uploadedCount)
+          : copy.timeline.notUploaded,
         tone: uploadSummary ? "active" : "muted",
       },
       {
-        label: "Client stack",
-        value: clientCompositeStatusText(clientCompositeStatus),
+        label: copy.timeline.clientStack,
+        value: clientCompositeStatusText(clientCompositeStatus, language),
         tone:
           clientCompositeStatus === "failed"
             ? "warn"
@@ -115,19 +141,25 @@ export function UploadWorkspace() {
               : "active",
       },
     ],
-    [clientCompositeStatus, items.length, pendingRawCount, readyCount, uploadSummary],
+    [clientCompositeStatus, copy, items.length, language, pendingRawCount, readyCount, uploadSummary],
   );
 
   const resultRows = useMemo<ResultRow[]>(
     () => [
       {
-        label: "Result PNG",
-        value: clientCompositeStatus === "completed" ? "Generated in browser" : "Not generated",
+        label: copy.resultRows.resultPng,
+        value:
+          clientCompositeStatus === "completed"
+            ? copy.resultRows.generatedInBrowser
+            : copy.resultRows.notGenerated,
       },
-      { label: "Stack status", value: clientCompositeStatusText(clientCompositeStatus) },
-      { label: "Warnings", value: `${clientWarnings.length}` },
+      {
+        label: copy.resultRows.stackStatus,
+        value: clientCompositeStatusText(clientCompositeStatus, language),
+      },
+      { label: copy.resultRows.warnings, value: `${clientWarnings.length}` },
     ],
-    [clientCompositeStatus, clientWarnings.length],
+    [clientCompositeStatus, clientWarnings.length, copy, language],
   );
 
   function handleSelectFrames() {
@@ -138,27 +170,38 @@ export function UploadWorkspace() {
     <main className="page-shell">
       <HeroMetrics
         compressionRatio={compressionRatio}
+        copy={copy}
         frameCount={items.length}
+        language={language}
         previewBytes={previewBytes}
+        setLanguage={setLanguage}
       />
 
       <section className="workspace-grid">
         <UploadQueuePanel
           activeItem={activeItem}
           clearQueue={clearQueue}
+          copy={copy}
           enqueueFiles={enqueueFiles}
           inputRef={inputRef}
           isDragging={isDragging}
           items={items}
+          language={language}
           onSelectFrames={handleSelectFrames}
           setActiveId={setActiveId}
           setIsDragging={setIsDragging}
         />
 
-        <PreviewSettingsPanel activeItem={activeItem} items={items} setActiveId={setActiveId} />
+        <PreviewSettingsPanel
+          activeItem={activeItem}
+          copy={copy}
+          items={items}
+          setActiveId={setActiveId}
+        />
 
         <PreviewPanel
           activeItem={activeItem}
+          copy={copy}
           uploadableCount={uploadableCount}
           uploadPreviews={uploadPreviewsAndClearJob}
         />
@@ -168,9 +211,11 @@ export function UploadWorkspace() {
           compressionRatio={compressionRatio}
           clientCompositeStatus={clientCompositeStatus}
           clientWarnings={clientWarnings}
+          copy={copy}
           isJobBusy={isJobBusy}
           job={job}
           jobError={jobError}
+          language={language}
           previewBytes={previewBytes}
           runComposite={runComposite}
           sourceBytes={sourceBytes}
@@ -181,6 +226,8 @@ export function UploadWorkspace() {
 
         <ResultPanel
           clientCompositeStatus={clientCompositeStatus}
+          copy={copy}
+          language={language}
           resultRows={resultRows}
           resultUrl={resultUrl}
         />

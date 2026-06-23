@@ -64,7 +64,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       if (item.extension === "cr3") {
         updateItem(item.id, {
           status: "generating",
-          note: "Extracting embedded JPEG",
+          note: { code: "extractingEmbeddedJpeg" },
         });
 
         try {
@@ -79,7 +79,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
 
           updateItem(item.id, {
             status: "ready",
-            note: `CR3 preview extracted (${formatBytes(embeddedPreview.extractedBytes)})`,
+            note: { code: "cr3PreviewExtracted", bytes: formatBytes(embeddedPreview.extractedBytes) },
             previewBlob: preview.blob,
             previewSize: preview.blob.size,
             previewUrl,
@@ -89,10 +89,10 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
         } catch (error) {
           updateItem(item.id, {
             status: "raw-pending",
-            note:
-              error instanceof Error
-                ? `CR3 preview unavailable: ${error.message}`
-                : "CR3 preview unavailable",
+            note: {
+              code: "cr3PreviewUnavailable",
+              detail: error instanceof Error ? error.message : undefined,
+            },
           });
         }
         return;
@@ -101,7 +101,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       if (rawExtensions.has(item.extension)) {
         updateItem(item.id, {
           status: "raw-pending",
-          note: "RAW embedded preview extraction is next",
+          note: { code: "rawExtractionLater" },
         });
         return;
       }
@@ -109,12 +109,12 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       if (!browserDecodableTypes.has(item.file.type)) {
         updateItem(item.id, {
           status: "unsupported",
-          note: "Browser preview decode is unavailable",
+          note: { code: "browserDecodeUnavailable" },
         });
         return;
       }
 
-      updateItem(item.id, { status: "generating", note: "Generating JPEG preview" });
+      updateItem(item.id, { status: "generating", note: { code: "generatingJpegPreview" } });
 
       try {
         const preview = await createPreviewJpeg(item.file, previewMaxEdge, previewJpegQuality);
@@ -123,7 +123,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
 
         updateItem(item.id, {
           status: "ready",
-          note: "Preview ready",
+          note: { code: "previewReady" },
           previewBlob: preview.blob,
           previewSize: preview.blob.size,
           previewUrl,
@@ -133,7 +133,10 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       } catch (error) {
         updateItem(item.id, {
           status: "failed",
-          note: error instanceof Error ? error.message : "Preview generation failed",
+          note: {
+            code: "previewGenerationFailed",
+            detail: error instanceof Error ? error.message : undefined,
+          },
         });
       }
     },

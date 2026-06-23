@@ -8,6 +8,19 @@ export type QueueStatus =
   | "uploaded"
   | "failed";
 
+export type QueueNote =
+  | { code: "queued" }
+  | { code: "extractingEmbeddedJpeg" }
+  | { code: "cr3PreviewExtracted"; bytes: string }
+  | { code: "cr3PreviewUnavailable"; detail?: string }
+  | { code: "rawExtractionLater" }
+  | { code: "browserDecodeUnavailable" }
+  | { code: "generatingJpegPreview" }
+  | { code: "previewReady" }
+  | { code: "previewGenerationFailed"; detail?: string }
+  | { code: "uploadingPreviewJpeg" }
+  | { code: "previewUploaded" };
+
 export type QueueItem = {
   id: string;
   file: File;
@@ -20,7 +33,7 @@ export type QueueItem = {
   width?: number;
   height?: number;
   status: QueueStatus;
-  note: string;
+  note: QueueNote;
 };
 
 export type TimelineTone = "active" | "muted" | "warn";

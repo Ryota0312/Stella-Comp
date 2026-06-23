@@ -98,6 +98,37 @@ button {
   background: rgba(255, 251, 245, 0.84);
 }
 
+.hero-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.language-switcher {
+  display: inline-flex;
+  justify-self: end;
+  padding: 3px;
+  border: 1px solid rgba(17, 70, 63, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 251, 245, 0.82);
+}
+
+.language-option {
+  min-width: 86px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.language-option-active {
+  color: #f4f7f6;
+  background: var(--accent);
+}
+
 .hero-metrics strong,
 .result-row strong {
   display: block;
@@ -134,7 +165,7 @@ button {
 
 .panel-header {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 18px;

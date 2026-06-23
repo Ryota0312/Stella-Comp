@@ -1,5 +1,4 @@
-import type { ClientCompositeStatus, QueueItem, QueueStatus } from "./types";
-import type { JobSummary } from "./uploadApi";
+import type { QueueItem } from "./types";
 
 export function createQueueItem(file: File): QueueItem {
   const extension = getExtension(file.name);
@@ -11,7 +10,7 @@ export function createQueueItem(file: File): QueueItem {
     extension,
     sourceSize: file.size,
     status: "queued",
-    note: "Queued",
+    note: { code: "queued" },
   };
 }
 
@@ -35,55 +34,4 @@ export function formatBytes(bytes: number) {
   const value = bytes / 1024 ** exponent;
 
   return `${value >= 10 || exponent === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[exponent]}`;
-}
-
-export function statusLabel(status: QueueStatus) {
-  switch (status) {
-    case "queued":
-      return "Queued";
-    case "generating":
-      return "Generating";
-    case "ready":
-      return "Ready";
-    case "raw-pending":
-      return "RAW pending";
-    case "unsupported":
-      return "Unsupported";
-    case "uploading":
-      return "Uploading";
-    case "uploaded":
-      return "Uploaded";
-    case "failed":
-      return "Failed";
-  }
-}
-
-export function statusText(status: JobSummary["status"]) {
-  switch (status) {
-    case "queued":
-      return "Queued";
-    case "running":
-      return "Running";
-    case "completed":
-      return "Completed";
-    case "failed":
-      return "Failed";
-  }
-}
-
-export function clientCompositeStatusText(status: ClientCompositeStatus) {
-  switch (status) {
-    case "idle":
-      return "Not started";
-    case "uploading":
-      return "Uploading";
-    case "estimating":
-      return "Estimating alignment";
-    case "stacking":
-      return "Stacking in browser";
-    case "completed":
-      return "Completed";
-    case "failed":
-      return "Failed";
-  }
 }

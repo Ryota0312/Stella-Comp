@@ -1,15 +1,18 @@
 import type { ClientCompositeStatus, TimelineItem } from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
-import { clientCompositeStatusText, formatBytes } from "../utils";
+import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
+import { formatBytes } from "../utils";
 
 type JobStatusPanelProps = {
   canRunJob: boolean;
   compressionRatio: number;
   clientCompositeStatus: ClientCompositeStatus;
   clientWarnings: ProcessingWarning[];
+  copy: UploadCopy;
   isJobBusy: boolean;
   job: JobSummary | null;
   jobError: string | null;
+  language: Language;
   previewBytes: number;
   runComposite: () => Promise<void>;
   sourceBytes: number;
@@ -23,9 +26,11 @@ export function JobStatusPanel({
   compressionRatio,
   clientCompositeStatus,
   clientWarnings,
+  copy,
   isJobBusy,
   job,
   jobError,
+  language,
   previewBytes,
   runComposite,
   sourceBytes,
@@ -37,8 +42,8 @@ export function JobStatusPanel({
     <section className="panel panel-jobs">
       <header className="panel-header">
         <div>
-          <p className="panel-kicker">Execution</p>
-          <h2>Preview Status</h2>
+          <p className="panel-kicker">{copy.execution.kicker}</p>
+          <h2>{copy.execution.title}</h2>
         </div>
         <button
           type="button"
@@ -46,7 +51,7 @@ export function JobStatusPanel({
           disabled={!canRunJob || isJobBusy}
           onClick={runComposite}
         >
-          {uploadSummary ? "Run Client Stack" : "Upload and Stack"}
+          {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
         </button>
       </header>
       <div className="timeline">
@@ -59,7 +64,7 @@ export function JobStatusPanel({
       </div>
       <div className="progress-block">
         <div className="progress-header">
-          <span>Preview payload</span>
+          <span>{copy.execution.previewPayload}</span>
           <strong>
             {formatBytes(previewBytes)} / {formatBytes(sourceBytes)}
           </strong>
@@ -74,17 +79,21 @@ export function JobStatusPanel({
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
       {uploadSummary ? (
         <p className="inline-success">
-          Uploaded {uploadSummary.uploadedCount} preview files (
-          {formatBytes(uploadSummary.uploadedBytes)}).
+          {copy.execution.uploadedSummary(
+            uploadSummary.uploadedCount,
+            formatBytes(uploadSummary.uploadedBytes),
+          )}
         </p>
       ) : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
       {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
-        <p className="inline-success">{clientCompositeStatusText(clientCompositeStatus)}</p>
+        <p className="inline-success">
+          {clientCompositeStatusText(clientCompositeStatus, language)}
+        </p>
       ) : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
       {clientWarnings.length ? (
-        <div className="warning-list" aria-label="Alignment warnings">
+        <div className="warning-list" aria-label={copy.execution.warningsLabel}>
           {clientWarnings.map((warning, index) => (
             <p key={`${warning.code}-${index}`}>
               <strong>{warning.code}</strong>

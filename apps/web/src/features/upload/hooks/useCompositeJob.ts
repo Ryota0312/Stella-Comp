@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { stackPreviewImages } from "../clientStacking";
+import type { UploadCopy } from "../i18n";
 import type { ClientCompositeStatus, QueueItem } from "../types";
 import {
   estimatePreviewAlignments,
@@ -11,6 +12,7 @@ import {
 type UseCompositeJobOptions = {
   activeId: string | null;
   canRunJob: boolean;
+  copy: UploadCopy;
   items: QueueItem[];
   uploadPreviews: () => Promise<PreviewUploadSummary | null>;
   uploadSummary: PreviewUploadSummary | null;
@@ -20,6 +22,7 @@ type UseCompositeJobOptions = {
 export function useCompositeJob({
   activeId,
   canRunJob,
+  copy,
   items,
   uploadPreviews,
   uploadSummary,
@@ -104,11 +107,12 @@ export function useCompositeJob({
       setClientCompositeStatus("completed");
     } catch (error) {
       setClientCompositeStatus("failed");
-      setJobError(error instanceof Error ? error.message : "Client-side composite failed");
+      setJobError(error instanceof Error ? error.message : copy.queueNotes.clientCompositeFailed);
     }
   }, [
     baseIndexForJob,
     canRunJob,
+    copy,
     isJobBusy,
     items,
     uploadPreviews,

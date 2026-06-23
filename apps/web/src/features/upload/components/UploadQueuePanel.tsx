@@ -1,14 +1,22 @@
 import type { ChangeEvent, DragEvent, KeyboardEvent, RefObject } from "react";
+import {
+  queueNoteText,
+  queueStatusText,
+  type Language,
+  type UploadCopy,
+} from "../i18n";
 import type { QueueItem } from "../types";
-import { formatBytes, statusLabel } from "../utils";
+import { formatBytes } from "../utils";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
   clearQueue: () => void;
+  copy: UploadCopy;
   enqueueFiles: (fileList: FileList | null) => void;
   inputRef: RefObject<HTMLInputElement | null>;
   isDragging: boolean;
   items: QueueItem[];
+  language: Language;
   onSelectFrames: () => void;
   setActiveId: (id: string) => void;
   setIsDragging: (isDragging: boolean) => void;
@@ -17,10 +25,12 @@ type UploadQueuePanelProps = {
 export function UploadQueuePanel({
   activeItem,
   clearQueue,
+  copy,
   enqueueFiles,
   inputRef,
   isDragging,
   items,
+  language,
   onSelectFrames,
   setActiveId,
   setIsDragging,
@@ -47,15 +57,15 @@ export function UploadQueuePanel({
     <section className="panel panel-upload">
       <header className="panel-header">
         <div>
-          <p className="panel-kicker">Ingest</p>
-          <h2>Upload Queue</h2>
+          <p className="panel-kicker">{copy.upload.kicker}</p>
+          <h2>{copy.upload.title}</h2>
         </div>
         <div className="action-row">
           <button type="button" className="secondary-action" onClick={clearQueue}>
-            Clear
+            {copy.upload.clear}
           </button>
           <button type="button" className="primary-action" onClick={onSelectFrames}>
-            Select Frames
+            {copy.upload.selectFrames}
           </button>
         </div>
       </header>
@@ -81,12 +91,12 @@ export function UploadQueuePanel({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <p>Drop RAW, JPEG, PNG, or WebP frames here</p>
-        <span>Browser-readable images are converted to preview JPEGs.</span>
+        <p>{copy.upload.dropTitle}</p>
+        <span>{copy.upload.dropDescription}</span>
       </div>
-      <div className="table-list" role="table" aria-label="Queued images">
+      <div className="table-list" role="table" aria-label={copy.upload.queuedImagesLabel}>
         {items.length === 0 ? (
-          <div className="empty-state">No frames selected</div>
+          <div className="empty-state">{copy.upload.empty}</div>
         ) : (
           items.map((item) => (
             <button
@@ -107,13 +117,15 @@ export function UploadQueuePanel({
                   <p className="row-title">{item.name}</p>
                   <span className="row-meta">
                     {formatBytes(item.sourceSize)}
-                    {item.previewSize ? ` -> ${formatBytes(item.previewSize)}` : ""}
+                    {item.previewSize ? `${copy.upload.sizeArrow}${formatBytes(item.previewSize)}` : ""}
                   </span>
                 </div>
               </div>
               <div className="row-state">
-                <span className={`pill pill-${item.status}`}>{statusLabel(item.status)}</span>
-                <span className="row-meta">{item.note}</span>
+                <span className={`pill pill-${item.status}`}>
+                  {queueStatusText(item.status, language)}
+                </span>
+                <span className="row-meta">{queueNoteText(item.note, language)}</span>
               </div>
             </button>
           ))

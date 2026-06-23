@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import type { UploadCopy } from "../i18n";
 import type { QueueItem } from "../types";
 import {
   type PreviewUploadSummary,
@@ -7,11 +8,12 @@ import {
 import { withoutExtension } from "../utils";
 
 type UsePreviewUploadOptions = {
+  copy: UploadCopy;
   items: QueueItem[];
   setItems: Dispatch<SetStateAction<QueueItem[]>>;
 };
 
-export function usePreviewUpload({ items, setItems }: UsePreviewUploadOptions) {
+export function usePreviewUpload({ copy, items, setItems }: UsePreviewUploadOptions) {
   const uploadedItemIdsRef = useRef<string[]>([]);
   const [uploadSummary, setUploadSummary] = useState<PreviewUploadSummary | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function usePreviewUpload({ items, setItems }: UsePreviewUploadOptions) {
     setItems((current) =>
       current.map((item) =>
         uploadableItems.some((uploadable) => uploadable.id === item.id)
-          ? { ...item, status: "uploading", note: "Uploading preview JPEG" }
+          ? { ...item, status: "uploading", note: { code: "uploadingPreviewJpeg" } }
           : item,
       ),
     );
@@ -57,23 +59,23 @@ export function usePreviewUpload({ items, setItems }: UsePreviewUploadOptions) {
       setItems((current) =>
         current.map((item) =>
           uploadableItems.some((uploadable) => uploadable.id === item.id)
-            ? { ...item, status: "uploaded", note: "Preview uploaded" }
+            ? { ...item, status: "uploaded", note: { code: "previewUploaded" } }
             : item,
         ),
       );
       return result;
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Preview upload failed");
+      setUploadError(error instanceof Error ? error.message : copy.queueNotes.previewUploadFailed);
       setItems((current) =>
         current.map((item) =>
           uploadableItems.some((uploadable) => uploadable.id === item.id)
-            ? { ...item, status: "ready", note: "Preview ready" }
+            ? { ...item, status: "ready", note: { code: "previewReady" } }
             : item,
         ),
       );
       return null;
     }
-  }, [setItems, uploadSummary, uploadableItems]);
+  }, [copy, setItems, uploadSummary, uploadableItems]);
 
   return {
     resetUploadState,

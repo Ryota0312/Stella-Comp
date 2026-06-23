@@ -1,19 +1,27 @@
 import type { ClientCompositeStatus, ResultRow } from "../types";
-import { clientCompositeStatusText } from "../utils";
+import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
 
 type ResultPanelProps = {
   clientCompositeStatus: ClientCompositeStatus;
+  copy: UploadCopy;
+  language: Language;
   resultRows: ResultRow[];
   resultUrl: string | null;
 };
 
-export function ResultPanel({ clientCompositeStatus, resultRows, resultUrl }: ResultPanelProps) {
+export function ResultPanel({
+  clientCompositeStatus,
+  copy,
+  language,
+  resultRows,
+  resultUrl,
+}: ResultPanelProps) {
   return (
     <section className="panel panel-results">
       <header className="panel-header">
         <div>
-          <p className="panel-kicker">Output</p>
-          <h2>Result Bundle</h2>
+          <p className="panel-kicker">{copy.result.kicker}</p>
+          <h2>{copy.result.title}</h2>
         </div>
       </header>
       <div className="result-stack">
@@ -27,9 +35,9 @@ export function ResultPanel({ clientCompositeStatus, resultRows, resultUrl }: Re
       <div className="result-preview">
         {resultUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={resultUrl} alt="Composite result" />
+          <img src={resultUrl} alt={copy.result.compositeAlt} />
         ) : (
-          <span>{clientCompositeStatusText(clientCompositeStatus)}</span>
+          <span>{clientCompositeStatusText(clientCompositeStatus, language)}</span>
         )}
       </div>
       <div className="result-actions">
@@ -40,7 +48,7 @@ export function ResultPanel({ clientCompositeStatus, resultRows, resultUrl }: Re
           rel="noreferrer"
           aria-disabled={!resultUrl}
         >
-          Open Preview
+          {copy.result.openPreview}
         </a>
         <a
           className={`primary-action link-action${resultUrl ? "" : " link-disabled"}`}
@@ -48,7 +56,7 @@ export function ResultPanel({ clientCompositeStatus, resultRows, resultUrl }: Re
           download="stella-comp-preview-stack.png"
           aria-disabled={!resultUrl}
         >
-          Download Output
+          {copy.result.downloadOutput}
         </a>
       </div>
     </section>

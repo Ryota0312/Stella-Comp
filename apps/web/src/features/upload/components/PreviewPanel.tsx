@@ -1,19 +1,26 @@
+import type { UploadCopy } from "../i18n";
 import type { QueueItem } from "../types";
 import { formatBytes } from "../utils";
 
 type PreviewPanelProps = {
   activeItem?: QueueItem;
+  copy: UploadCopy;
   uploadableCount: number;
   uploadPreviews: () => Promise<unknown>;
 };
 
-export function PreviewPanel({ activeItem, uploadableCount, uploadPreviews }: PreviewPanelProps) {
+export function PreviewPanel({
+  activeItem,
+  copy,
+  uploadableCount,
+  uploadPreviews,
+}: PreviewPanelProps) {
   return (
     <section className="panel panel-preview">
       <header className="panel-header">
         <div>
-          <p className="panel-kicker">Review</p>
-          <h2>Preview Check</h2>
+          <p className="panel-kicker">{copy.preview.kicker}</p>
+          <h2>{copy.preview.title}</h2>
         </div>
         <button
           type="button"
@@ -21,7 +28,7 @@ export function PreviewPanel({ activeItem, uploadableCount, uploadPreviews }: Pr
           disabled={!uploadableCount}
           onClick={uploadPreviews}
         >
-          Upload Previews
+          {copy.preview.uploadPreviews}
         </button>
       </header>
       <div className="preview-stage">
@@ -30,19 +37,19 @@ export function PreviewPanel({ activeItem, uploadableCount, uploadPreviews }: Pr
           <img className="preview-image" src={activeItem.previewUrl} alt={activeItem.name} />
         ) : (
           <div className="preview-placeholder">
-            <span>{activeItem ? activeItem.note : "Select frames to preview"}</span>
+            <span>{copy.preview.selectFrames}</span>
           </div>
         )}
       </div>
       <div className="preview-legend">
-        <span>{activeItem?.name ?? "No frame"}</span>
+        <span>{activeItem?.name ?? copy.preview.noFrame}</span>
         <span>
           {activeItem?.width && activeItem.height
-            ? `${activeItem.width} x ${activeItem.height}`
-            : "No dimensions"}
+            ? `${activeItem.width}${copy.preview.dimensionSeparator}${activeItem.height}`
+            : copy.preview.noDimensions}
         </span>
         <span>
-          {activeItem?.previewSize ? formatBytes(activeItem.previewSize) : "No preview JPEG"}
+          {activeItem?.previewSize ? formatBytes(activeItem.previewSize) : copy.preview.noPreviewJpeg}
         </span>
       </div>
     </section>
