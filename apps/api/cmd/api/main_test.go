@@ -19,8 +19,9 @@ import (
 )
 
 type fakeProcessor struct {
-	request *stellacompv1.AlignAndAverageRequest
-	err     error
+	request          *stellacompv1.AlignAndAverageRequest
+	transformRequest *stellacompv1.EstimateTransformsRequest
+	err              error
 }
 
 func (processor *fakeProcessor) AlignAndAverage(ctx context.Context, request *stellacompv1.AlignAndAverageRequest) (*stellacompv1.AlignAndAverageResponse, error) {
@@ -39,6 +40,29 @@ func (processor *fakeProcessor) AlignAndAverage(ctx context.Context, request *st
 		OutputPath: request.GetOutputPath(),
 		Warnings: []*stellacompv1.ProcessingWarning{
 			{Code: "TEST_WARNING", Message: "test warning"},
+		},
+	}, nil
+}
+
+func (processor *fakeProcessor) EstimateTransforms(ctx context.Context, request *stellacompv1.EstimateTransformsRequest) (*stellacompv1.EstimateTransformsResponse, error) {
+	processor.transformRequest = request
+	if processor.err != nil {
+		return nil, processor.err
+	}
+
+	transforms := make([]*stellacompv1.ImageTransform, 0, len(request.GetImages()))
+	for index := range request.GetImages() {
+		transforms = append(transforms, &stellacompv1.ImageTransform{
+			ImageIndex: uint32(index),
+			Affine:     []float64{1, 0, float64(index), 0, 1, 0},
+			Estimated:  true,
+		})
+	}
+
+	return &stellacompv1.EstimateTransformsResponse{
+		Transforms: transforms,
+		Warnings: []*stellacompv1.ProcessingWarning{
+			{Code: "TEST_TRANSFORM_WARNING", Message: "test transform warning"},
 		},
 	}, nil
 }
@@ -214,6 +238,53 @@ func TestCreateJobMarksWorkerErrorAsFailed(t *testing.T) {
 	job := waitForJobStatus(t, router, created.JobID, "failed")
 	if !strings.Contains(job.Error, "worker unavailable") {
 		t.Fatalf("job error = %q", job.Error)
+	}
+}
+
+func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dataDir := t.TempDir()
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", "session-1")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"0002-frame.jpg", "0001-frame.jpg"} {
+		if err := os.WriteFile(filepath.Join(sessionDir, name), []byte("preview"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	processor := &fakeProcessor{}
+	router := newRouterWithProcessor(dataDir, processor)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+	if processor.transformRequest.GetBaseImageIndex() != 1 {
+		t.Fatalf("base image index = %d", processor.transformRequest.GetBaseImageIndex())
+	}
+	if len(processor.transformRequest.GetImages()) != 2 {
+		t.Fatalf("worker images = %d", len(processor.transformRequest.GetImages()))
+	}
+
+	var body estimateTransformsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Transforms) != 2 {
+		t.Fatalf("transforms = %#v", body.Transforms)
+	}
+	if body.Transforms[1].Affine[2] != 1 {
+		t.Fatalf("second transform = %#v", body.Transforms[1])
+	}
+	if len(body.Warnings) != 1 || body.Warnings[0].Code != "TEST_TRANSFORM_WARNING" {
+		t.Fatalf("warnings = %#v", body.Warnings)
 	}
 }
 

@@ -25,6 +25,14 @@ export type QueueItem = {
 
 export type TimelineTone = "active" | "muted" | "warn";
 
+export type ClientCompositeStatus =
+  | "idle"
+  | "uploading"
+  | "estimating"
+  | "stacking"
+  | "completed"
+  | "failed";
+
 export type TimelineItem = {
   label: string;
   value: string;

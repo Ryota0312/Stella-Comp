@@ -25,6 +25,20 @@ export type JobSummary = {
   updatedAt: string;
 };
 
+export type ImageTransform = {
+  imageIndex: number;
+  affine: number[];
+  estimated: boolean;
+};
+
+export type PreviewAlignmentSummary = {
+  sessionId: string;
+  baseImageIndex: number;
+  previewPaths: string[];
+  transforms: ImageTransform[];
+  warnings?: ProcessingWarning[];
+};
+
 type UploadedPreview = {
   fieldName: string;
   fileName: string;
@@ -62,6 +76,25 @@ export async function createPreviewJob(
   }
 
   return (await response.json()) as JobSummary;
+}
+
+export async function estimatePreviewAlignments(
+  sessionId: string,
+  baseImageIndex: number,
+): Promise<PreviewAlignmentSummary> {
+  const response = await fetch(`${apiBaseUrl()}/preview-alignments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ sessionId, baseImageIndex }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, "Preview alignment failed"));
+  }
+
+  return (await response.json()) as PreviewAlignmentSummary;
 }
 
 export async function fetchJob(jobId: string): Promise<JobSummary> {

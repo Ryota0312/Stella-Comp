@@ -6,6 +6,7 @@ option go_package = "github.com/Ryota0312/stella-comp/apps/api/internal/gen/stel
 
 service ImageProcessor {
   rpc AlignAndAverage(AlignAndAverageRequest) returns (AlignAndAverageResponse);
+  rpc EstimateTransforms(EstimateTransformsRequest) returns (EstimateTransformsResponse);
 }
 
 message AlignAndAverageRequest {
@@ -24,6 +25,23 @@ message InputImage {
 message AlignAndAverageResponse {
   string output_path = 1;
   repeated ProcessingWarning warnings = 2;
+}
+
+message EstimateTransformsRequest {
+  repeated InputImage images = 1;
+  int32 base_image_index = 2;
+}
+
+message EstimateTransformsResponse {
+  repeated ImageTransform transforms = 1;
+  repeated ProcessingWarning warnings = 2;
+}
+
+message ImageTransform {
+  uint32 image_index = 1;
+  // 2x3 affine matrix mapping this image's preview pixels into the base preview coordinate system.
+  repeated double affine = 2;
+  bool estimated = 3;
 }
 
 message ProcessingWarning {

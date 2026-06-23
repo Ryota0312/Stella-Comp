@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { jobPollIntervalMs } from "../constants";
+import { stackPreviewImages } from "../clientStacking";
+import type { ClientCompositeStatus, QueueItem } from "../types";
 import {
-  createPreviewJob,
-  fetchJob,
+  estimatePreviewAlignments,
   type JobSummary,
-  jobResultUrl,
+  type ProcessingWarning,
   type PreviewUploadSummary,
 } from "../uploadApi";
 
 type UseCompositeJobOptions = {
   activeId: string | null;
   canRunJob: boolean;
+  items: QueueItem[];
   uploadPreviews: () => Promise<PreviewUploadSummary | null>;
   uploadSummary: PreviewUploadSummary | null;
   uploadedItemIdsRef: RefObject<string[]>;
@@ -19,51 +20,39 @@ type UseCompositeJobOptions = {
 export function useCompositeJob({
   activeId,
   canRunJob,
+  items,
   uploadPreviews,
   uploadSummary,
   uploadedItemIdsRef,
 }: UseCompositeJobOptions) {
-  const pollTimeoutRef = useRef<number | null>(null);
   const [job, setJob] = useState<JobSummary | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
-  const [isStartingJob, setIsStartingJob] = useState(false);
+  const [clientCompositeStatus, setClientCompositeStatus] =
+    useState<ClientCompositeStatus>("idle");
+  const [clientWarnings, setClientWarnings] = useState<ProcessingWarning[]>([]);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const resultUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
-      if (pollTimeoutRef.current !== null) {
-        window.clearTimeout(pollTimeoutRef.current);
+      if (resultUrlRef.current) {
+        URL.revokeObjectURL(resultUrlRef.current);
       }
     };
   }, []);
 
   const clearJobState = useCallback((preserveStarting = false) => {
-    if (pollTimeoutRef.current !== null) {
-      window.clearTimeout(pollTimeoutRef.current);
-      pollTimeoutRef.current = null;
-    }
     setJob(null);
     setJobError(null);
     if (!preserveStarting) {
-      setIsStartingJob(false);
+      setClientCompositeStatus("idle");
     }
-  }, []);
-
-  const pollJob = useCallback((jobId: string) => {
-    if (pollTimeoutRef.current !== null) {
-      window.clearTimeout(pollTimeoutRef.current);
+    setClientWarnings([]);
+    if (resultUrlRef.current) {
+      URL.revokeObjectURL(resultUrlRef.current);
+      resultUrlRef.current = null;
     }
-
-    pollTimeoutRef.current = window.setTimeout(async () => {
-      try {
-        const nextJob = await fetchJob(jobId);
-        setJob(nextJob);
-        if (nextJob.status === "queued" || nextJob.status === "running") {
-          pollJob(jobId);
-        }
-      } catch (error) {
-        setJobError(error instanceof Error ? error.message : "Job status fetch failed");
-      }
-    }, jobPollIntervalMs);
+    setResultUrl(null);
   }, []);
 
   const baseIndexForJob = useCallback(() => {
@@ -71,35 +60,66 @@ export function useCompositeJob({
     return activeIndex >= 0 ? activeIndex : 0;
   }, [activeId, uploadedItemIdsRef]);
 
-  const isJobBusy = isStartingJob || job?.status === "queued" || job?.status === "running";
-  const resultUrl = job?.status === "completed" ? jobResultUrl(job.jobId) : null;
+  const isJobBusy =
+    clientCompositeStatus === "uploading" ||
+    clientCompositeStatus === "estimating" ||
+    clientCompositeStatus === "stacking";
 
   const runComposite = useCallback(async () => {
     if (isJobBusy || !canRunJob) {
       return;
     }
 
-    setIsStartingJob(true);
     setJobError(null);
+    setJob(null);
+    setClientWarnings([]);
+    setClientCompositeStatus(uploadSummary ? "estimating" : "uploading");
 
     try {
       const summary = uploadSummary ?? (await uploadPreviews());
       if (!summary) {
+        setClientCompositeStatus("idle");
         return;
       }
 
-      const createdJob = await createPreviewJob(summary.sessionId, baseIndexForJob());
-      setJob(createdJob);
-      pollJob(createdJob.jobId);
+      const baseImageIndex = baseIndexForJob();
+      setClientCompositeStatus("estimating");
+      const alignment = await estimatePreviewAlignments(summary.sessionId, baseImageIndex);
+      setClientWarnings(alignment.warnings ?? []);
+
+      setClientCompositeStatus("stacking");
+      const resultBlob = await stackPreviewImages({
+        items,
+        itemIds: uploadedItemIdsRef.current,
+        transforms: alignment.transforms,
+        baseImageIndex,
+      });
+
+      if (resultUrlRef.current) {
+        URL.revokeObjectURL(resultUrlRef.current);
+      }
+      const nextResultUrl = URL.createObjectURL(resultBlob);
+      resultUrlRef.current = nextResultUrl;
+      setResultUrl(nextResultUrl);
+      setClientCompositeStatus("completed");
     } catch (error) {
-      setJobError(error instanceof Error ? error.message : "Job creation failed");
-    } finally {
-      setIsStartingJob(false);
+      setClientCompositeStatus("failed");
+      setJobError(error instanceof Error ? error.message : "Client-side composite failed");
     }
-  }, [baseIndexForJob, canRunJob, isJobBusy, pollJob, uploadPreviews, uploadSummary]);
+  }, [
+    baseIndexForJob,
+    canRunJob,
+    isJobBusy,
+    items,
+    uploadPreviews,
+    uploadSummary,
+    uploadedItemIdsRef,
+  ]);
 
   return {
     clearJobState,
+    clientCompositeStatus,
+    clientWarnings,
     isJobBusy,
     job,
     jobError,

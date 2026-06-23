@@ -11,7 +11,7 @@ import { useCompositeJob } from "./hooks/useCompositeJob";
 import { usePreviewUpload } from "./hooks/usePreviewUpload";
 import { useUploadQueue } from "./hooks/useUploadQueue";
 import type { ResultRow, TimelineItem } from "./types";
-import { statusText } from "./utils";
+import { clientCompositeStatusText } from "./utils";
 
 export function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +64,8 @@ export function UploadWorkspace() {
 
   const {
     clearJobState,
+    clientCompositeStatus,
+    clientWarnings,
     isJobBusy,
     job,
     jobError,
@@ -72,6 +74,7 @@ export function UploadWorkspace() {
   } = useCompositeJob({
     activeId,
     canRunJob,
+    items,
     uploadPreviews: uploadPreviewsAndClearJob,
     uploadSummary,
     uploadedItemIdsRef,
@@ -102,24 +105,29 @@ export function UploadWorkspace() {
         tone: uploadSummary ? "active" : "muted",
       },
       {
-        label: "Composite job",
-        value: job ? statusText(job.status) : "Not started",
-        tone: job?.status === "failed" ? "warn" : job ? "active" : "muted",
+        label: "Client stack",
+        value: clientCompositeStatusText(clientCompositeStatus),
+        tone:
+          clientCompositeStatus === "failed"
+            ? "warn"
+            : clientCompositeStatus === "idle"
+              ? "muted"
+              : "active",
       },
     ],
-    [items.length, job, pendingRawCount, readyCount, uploadSummary],
+    [clientCompositeStatus, items.length, pendingRawCount, readyCount, uploadSummary],
   );
 
   const resultRows = useMemo<ResultRow[]>(
     () => [
       {
-        label: "Result JPEG",
-        value: job?.status === "completed" ? "Generated" : "Not generated",
+        label: "Result PNG",
+        value: clientCompositeStatus === "completed" ? "Generated in browser" : "Not generated",
       },
-      { label: "Job status", value: job ? statusText(job.status) : "Not started" },
-      { label: "Warnings", value: `${job?.warnings?.length ?? 0}` },
+      { label: "Stack status", value: clientCompositeStatusText(clientCompositeStatus) },
+      { label: "Warnings", value: `${clientWarnings.length}` },
     ],
-    [job],
+    [clientCompositeStatus, clientWarnings.length],
   );
 
   function handleSelectFrames() {
@@ -158,6 +166,8 @@ export function UploadWorkspace() {
         <JobStatusPanel
           canRunJob={canRunJob}
           compressionRatio={compressionRatio}
+          clientCompositeStatus={clientCompositeStatus}
+          clientWarnings={clientWarnings}
           isJobBusy={isJobBusy}
           job={job}
           jobError={jobError}
@@ -169,7 +179,11 @@ export function UploadWorkspace() {
           uploadSummary={uploadSummary}
         />
 
-        <ResultPanel job={job} resultRows={resultRows} resultUrl={resultUrl} />
+        <ResultPanel
+          clientCompositeStatus={clientCompositeStatus}
+          resultRows={resultRows}
+          resultUrl={resultUrl}
+        />
       </section>
     </main>
   );

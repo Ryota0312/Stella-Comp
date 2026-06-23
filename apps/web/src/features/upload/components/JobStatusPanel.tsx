@@ -1,10 +1,12 @@
-import type { TimelineItem } from "../types";
-import type { JobSummary, PreviewUploadSummary } from "../uploadApi";
-import { formatBytes } from "../utils";
+import type { ClientCompositeStatus, TimelineItem } from "../types";
+import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
+import { clientCompositeStatusText, formatBytes } from "../utils";
 
 type JobStatusPanelProps = {
   canRunJob: boolean;
   compressionRatio: number;
+  clientCompositeStatus: ClientCompositeStatus;
+  clientWarnings: ProcessingWarning[];
   isJobBusy: boolean;
   job: JobSummary | null;
   jobError: string | null;
@@ -19,6 +21,8 @@ type JobStatusPanelProps = {
 export function JobStatusPanel({
   canRunJob,
   compressionRatio,
+  clientCompositeStatus,
+  clientWarnings,
   isJobBusy,
   job,
   jobError,
@@ -42,7 +46,7 @@ export function JobStatusPanel({
           disabled={!canRunJob || isJobBusy}
           onClick={runComposite}
         >
-          {uploadSummary ? "Run Composite" : "Upload and Run"}
+          {uploadSummary ? "Run Client Stack" : "Upload and Stack"}
         </button>
       </header>
       <div className="timeline">
@@ -75,10 +79,13 @@ export function JobStatusPanel({
         </p>
       ) : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
+      {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
+        <p className="inline-success">{clientCompositeStatusText(clientCompositeStatus)}</p>
+      ) : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
-      {job?.warnings?.length ? (
-        <div className="warning-list" aria-label="Job warnings">
-          {job.warnings.map((warning, index) => (
+      {clientWarnings.length ? (
+        <div className="warning-list" aria-label="Alignment warnings">
+          {clientWarnings.map((warning, index) => (
             <p key={`${warning.code}-${index}`}>
               <strong>{warning.code}</strong>
               <span>{warning.message}</span>

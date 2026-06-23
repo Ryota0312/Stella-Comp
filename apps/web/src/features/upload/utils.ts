@@ -1,4 +1,4 @@
-import type { QueueItem, QueueStatus } from "./types";
+import type { ClientCompositeStatus, QueueItem, QueueStatus } from "./types";
 import type { JobSummary } from "./uploadApi";
 
 export function createQueueItem(file: File): QueueItem {
@@ -64,6 +64,23 @@ export function statusText(status: JobSummary["status"]) {
       return "Queued";
     case "running":
       return "Running";
+    case "completed":
+      return "Completed";
+    case "failed":
+      return "Failed";
+  }
+}
+
+export function clientCompositeStatusText(status: ClientCompositeStatus) {
+  switch (status) {
+    case "idle":
+      return "Not started";
+    case "uploading":
+      return "Uploading";
+    case "estimating":
+      return "Estimating alignment";
+    case "stacking":
+      return "Stacking in browser";
     case "completed":
       return "Completed";
     case "failed":

@@ -54,17 +54,17 @@
 
 1. ブラウザで元画像を選択する。
 2. ブラウザで軽量プレビュー画像を生成する。ブラウザで直接読めない RAW は、後続の埋め込みプレビュー抽出処理へ回す。
-3. Go API に元画像と軽量プレビュー画像をアップロードする。
+3. Go API に軽量プレビュー画像をアップロードする。
 4. Rust worker が軽量プレビュー画像からアフィン変換行列を推定する。
-5. Rust worker が推定した変換行列を元画像座標系へ変換する。
-6. Rust worker が元画像に変換行列を適用し、加算平均合成する。
-7. Go API が処理結果と位置合わせプレビューを返す。
+5. Go API が推定した変換行列を Web UI へ返す。
+6. Web UI がブラウザ上で preview JPEG に変換行列を適用し、加算平均合成する。
+7. Web UI が処理結果を PNG としてプレビュー、ダウンロードできるようにする。
 
-MVP の現在実装では、preview JPEG のアップロード後に `POST /api/jobs` でジョブを作成し、Go API が Rust worker の `AlignAndAverage` を呼び出す。現段階では preview JPEG を位置合わせ入力兼合成入力として扱い、結果 JPEG を `.data/jobs/<job-id>/result.jpg` に保存する。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、worker へ絶対パスを渡す。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
+MVP の現在実装では、preview JPEG のアップロード後に Web UI が `POST /api/preview-alignments` を呼び出し、Go API が Rust worker の `EstimateTransforms` から各画像の 2x3 アフィン変換行列を取得する。Web UI は返却された行列を使ってブラウザの Canvas 上で preview JPEG を変換し、加算平均した PNG を生成する。`POST /api/jobs` は従来のサーバー側 preview JPEG 合成の比較・フォールバック用として残す。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、worker へ絶対パスを渡す。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で実装する。
 
-preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景フレームに合わせて回転・平行移動・等方スケールの部分アフィン変換を推定する。MVP では、RANSAC で妥当な変換を推定できないフレームは `ALIGNMENT_SKIPPED` warning を付けて合成対象から外し、ジョブ全体は可能な限り完了させる。これは結果ファイル確認を優先するための暫定挙動であり、後続で星検出ベースのマッチングやより安定した変換推定へ置き換える。
+preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景フレームに合わせて回転・平行移動・等方スケールの部分アフィン変換を推定する。MVP では、RANSAC で妥当な変換を推定できないフレームは `TRANSFORM_ESTIMATE_FAILED` warning を付けて identity transform を返し、クライアント側合成全体は可能な限り完了させる。これは結果ファイル確認を優先するための暫定挙動であり、後続で星検出ベースのマッチングやより安定した変換推定へ置き換える。
 
-ブラウザ側でのアフィン変換行列の適用は、初期 MVP では最終成果物ではなく低解像度プレビュー用途に限定する。最終画像への変換行列適用と合成は Rust worker で行う。
+ブラウザ側でのアフィン変換行列の適用は、まず preview JPEG の PoC 合成で検証する。最終的な RAW/TIFF 合成では、preview 座標系の変換行列を元画像座標系へ補正し、ブラウザ WASM または Rust worker のどちらで重いピクセル処理を担うかを実測で決める。
 
 プレビュー画像で得た変換行列を元画像に適用するため、元画像サイズ、プレビュー画像サイズ、EXIF 回転、RAW 現像時のクロップや回転を追跡する。
 
@@ -116,15 +116,18 @@ preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景
 
 - `POST /api/preview-uploads`
   - `multipart/form-data` の `previews` フィールドを `.data/uploads/previews/<session-id>/` に保存する。
-- `POST /api/jobs`
+- `POST /api/preview-alignments`
   - JSON の `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルを名前順で Rust worker に渡す。
+  - レスポンスは各画像を基準preview座標系へ写す `transforms[]` と `warnings[]`。
+- `POST /api/jobs`
+  - サーバー側preview合成の比較・フォールバック用。JSON の `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルを名前順で Rust worker に渡す。
   - `previewPaths` を明示する場合も、対象セッションディレクトリ配下のパスだけを受け付ける。
 - `GET /api/jobs/:jobID`
   - Go API プロセス内メモリで管理している `queued` / `running` / `completed` / `failed` の状態を返す。
 - `GET /api/jobs/:jobID/result`
   - `completed` の場合のみ結果 JPEG を返す。
 
-Web UI は preview JPEG のアップロード後、同じ画面から `POST /api/jobs` を呼び出して合成ジョブを作成できる。ジョブ作成後は `GET /api/jobs/:jobID` を約2.5秒間隔で polling し、`completed` になったら `GET /api/jobs/:jobID/result` を画像プレビュー、別タブ表示、ダウンロードリンクに使う。ジョブが `failed` の場合は API の error を画面に表示し、warning が返った場合は `ALIGNMENT_SKIPPED` などの code と message を Execution パネルに表示する。
+Web UI は preview JPEG のアップロード後、同じ画面から `POST /api/preview-alignments` を呼び出して変換行列を取得し、ブラウザ側で preview JPEG をスタックする。結果は Blob URL として画面プレビュー、別タブ表示、PNG ダウンロードリンクに使う。warning が返った場合は `TRANSFORM_ESTIMATE_FAILED` などの code と message を Execution パネルに表示する。`POST /api/jobs` と `GET /api/jobs/:jobID/result` はサーバー側合成の比較・フォールバック用として残す。
 
 Rust 側には preview JPEG の調査用 example として以下を置く。
 

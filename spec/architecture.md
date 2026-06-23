@@ -98,8 +98,9 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 初期実装では、位置合わせと最終合成で使う画像を分ける。
 
 - 位置合わせ: ブラウザまたはサーバで生成した軽量プレビュー画像を使う
+- preview PoC 合成: 推定した変換行列をブラウザの Canvas で preview JPEG に適用し、クライアント側で加算平均合成する
 - 最終変換: 推定した変換行列を元画像座標系へ補正して使う
-- 最終合成: RAW/TIFF などの元画像を Rust worker で処理する
+- 将来の最終合成: RAW/TIFF などの元画像をブラウザ WASM または Rust worker で処理する
 - UI プレビュー: 低解像度画像に変換行列を適用して表示する
 
 この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
@@ -113,7 +114,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 - RAW 現像時の回転やクロップ
 - JPEG プレビュー生成時のリサイズ方式
 
-初期 MVP では、最終画像へのアフィン変換適用と合成はサーバサイド Rust worker が担当する。ブラウザ側のアフィン適用は低解像度プレビュー用途に限定する。
+現在のハイブリッド PoC では、Rust worker が preview JPEG から基準画像への 2x3 アフィン変換行列を推定し、Web UI がその行列を使ってブラウザ上で preview JPEG をアフィン変換・加算平均合成する。重いピクセル処理をブラウザ側へ寄せ、サーバーは位置合わせ推定を担当する構成の成立性を検証する。
 
 ## 初期 API 案
 
@@ -121,15 +122,17 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
   - Go API のヘルスチェック。
 - `POST /api/preview-uploads`
   - ブラウザで生成した preview JPEG を受け取り、ローカルファイルシステムに保存する。
+- `POST /api/preview-alignments`
+  - `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルから各画像の preview 座標系アフィン変換行列を返す。
 - `POST /api/jobs`
-  - `sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルからジョブを作成する。
+  - サーバー合成の比較・フォールバック用。`sessionId` と `baseImageIndex` を受け取り、preview upload セッション内のファイルからジョブを作成する。
   - 必要に応じて `previewPaths` を明示できるが、パスは `.data/uploads/previews/<session-id>/` 配下に制限する。
 - `GET /api/jobs/:jobID`
   - ジョブ状態、進捗、エラーを返す。
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
 
-MVP の現在実装では、Go API がジョブをプロセス内メモリで管理する。`POST /api/jobs` は `.data/uploads/previews/<session-id>/` の preview JPEG を名前順に並べ、Rust worker の `AlignAndAverage` へ渡す。worker は preview JPEG を位置合わせして加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存する。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で拡張する。
+現在の Web UI は `POST /api/preview-alignments` を呼び出し、Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。元画像への変換行列適用、RAW/TIFF 現像、ジョブ永続化は後続で拡張する。
 
 ## 初期 gRPC API 案
 
@@ -140,6 +143,7 @@ package stellacomp.v1;
 
 service ImageProcessor {
   rpc AlignAndAverage(AlignAndAverageRequest) returns (AlignAndAverageResponse);
+  rpc EstimateTransforms(EstimateTransformsRequest) returns (EstimateTransformsResponse);
 }
 
 message AlignAndAverageRequest {
@@ -158,6 +162,22 @@ message InputImage {
 message AlignAndAverageResponse {
   string output_path = 1;
   repeated ProcessingWarning warnings = 2;
+}
+
+message EstimateTransformsRequest {
+  repeated InputImage images = 1;
+  int32 base_image_index = 2;
+}
+
+message EstimateTransformsResponse {
+  repeated ImageTransform transforms = 1;
+  repeated ProcessingWarning warnings = 2;
+}
+
+message ImageTransform {
+  uint32 image_index = 1;
+  repeated double affine = 2;
+  bool estimated = 3;
 }
 
 message ProcessingWarning {

@@ -30,6 +30,7 @@ const (
 
 type processor interface {
 	AlignAndAverage(ctx context.Context, request *stellacompv1.AlignAndAverageRequest) (*stellacompv1.AlignAndAverageResponse, error)
+	EstimateTransforms(ctx context.Context, request *stellacompv1.EstimateTransformsRequest) (*stellacompv1.EstimateTransformsResponse, error)
 }
 
 type grpcProcessor struct {
@@ -45,6 +46,17 @@ func (processor grpcProcessor) AlignAndAverage(ctx context.Context, request *ste
 
 	client := stellacompv1.NewImageProcessorClient(connection)
 	return client.AlignAndAverage(ctx, request)
+}
+
+func (processor grpcProcessor) EstimateTransforms(ctx context.Context, request *stellacompv1.EstimateTransformsRequest) (*stellacompv1.EstimateTransformsResponse, error) {
+	connection, err := grpc.DialContext(ctx, processor.address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Close()
+
+	client := stellacompv1.NewImageProcessorClient(connection)
+	return client.EstimateTransforms(ctx, request)
 }
 
 type uploadResponse struct {
@@ -65,6 +77,26 @@ type createJobRequest struct {
 	SessionID      string   `json:"sessionId"`
 	PreviewPaths   []string `json:"previewPaths"`
 	BaseImageIndex int      `json:"baseImageIndex"`
+}
+
+type estimateTransformsRequest struct {
+	SessionID      string   `json:"sessionId"`
+	PreviewPaths   []string `json:"previewPaths"`
+	BaseImageIndex int      `json:"baseImageIndex"`
+}
+
+type estimateTransformsResponse struct {
+	SessionID      string              `json:"sessionId"`
+	BaseImageIndex int                 `json:"baseImageIndex"`
+	PreviewPaths   []string            `json:"previewPaths"`
+	Transforms     []imageTransform    `json:"transforms"`
+	Warnings       []processingWarning `json:"warnings,omitempty"`
+}
+
+type imageTransform struct {
+	ImageIndex uint32    `json:"imageIndex"`
+	Affine     []float64 `json:"affine"`
+	Estimated  bool      `json:"estimated"`
 }
 
 type jobResponse struct {
@@ -232,6 +264,54 @@ func newRouterWithProcessor(dataDir string, imageProcessor processor) *gin.Engin
 		c.JSON(http.StatusAccepted, job)
 	})
 
+	router.POST("/api/preview-alignments", func(c *gin.Context) {
+		var request estimateTransformsRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "json body is required"})
+			return
+		}
+
+		sessionID, previewPaths, ok := validatePreviewJobRequest(c, dataDir, request.SessionID, request.PreviewPaths, request.BaseImageIndex)
+		if !ok {
+			return
+		}
+
+		images := previewInputImages(previewPaths)
+		response, err := imageProcessor.EstimateTransforms(c.Request.Context(), &stellacompv1.EstimateTransformsRequest{
+			Images:         images,
+			BaseImageIndex: int32(request.BaseImageIndex),
+		})
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+
+		transforms := make([]imageTransform, 0, len(response.GetTransforms()))
+		for _, transform := range response.GetTransforms() {
+			transforms = append(transforms, imageTransform{
+				ImageIndex: transform.GetImageIndex(),
+				Affine:     transform.GetAffine(),
+				Estimated:  transform.GetEstimated(),
+			})
+		}
+
+		warnings := make([]processingWarning, 0, len(response.GetWarnings()))
+		for _, warning := range response.GetWarnings() {
+			warnings = append(warnings, processingWarning{
+				Code:    warning.GetCode(),
+				Message: warning.GetMessage(),
+			})
+		}
+
+		c.JSON(http.StatusOK, estimateTransformsResponse{
+			SessionID:      sessionID,
+			BaseImageIndex: request.BaseImageIndex,
+			PreviewPaths:   previewPaths,
+			Transforms:     transforms,
+			Warnings:       warnings,
+		})
+	})
+
 	router.GET("/api/jobs/:jobID", func(c *gin.Context) {
 		job, ok := jobs.get(c.Param("jobID"))
 		if !ok {
@@ -257,6 +337,40 @@ func newRouterWithProcessor(dataDir string, imageProcessor processor) *gin.Engin
 	})
 
 	return router
+}
+
+func validatePreviewJobRequest(c *gin.Context, dataDir string, rawSessionID string, rawPreviewPaths []string, baseImageIndex int) (string, []string, bool) {
+	if strings.TrimSpace(rawSessionID) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "sessionId is required"})
+		return "", nil, false
+	}
+	sessionID := safePathSegment(rawSessionID)
+
+	previewPaths := rawPreviewPaths
+	if len(previewPaths) == 0 {
+		var err error
+		previewPaths, err = previewPathsForSession(dataDir, sessionID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return "", nil, false
+		}
+	}
+
+	previewPaths, err := validatePreviewPaths(dataDir, sessionID, previewPaths)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return "", nil, false
+	}
+	if len(previewPaths) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one preview path is required"})
+		return "", nil, false
+	}
+	if baseImageIndex < 0 || baseImageIndex >= len(previewPaths) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "baseImageIndex is out of range"})
+		return "", nil, false
+	}
+
+	return sessionID, previewPaths, true
 }
 
 func envOrDefault(key, fallback string) string {
@@ -342,16 +456,8 @@ func runJob(ctx context.Context, jobs *jobStore, jobID string, imageProcessor pr
 		job.UpdatedAt = time.Now().UTC()
 	})
 
-	images := make([]*stellacompv1.InputImage, 0, len(previewPaths))
-	for _, previewPath := range previewPaths {
-		images = append(images, &stellacompv1.InputImage{
-			SourcePath:  previewPath,
-			PreviewPath: previewPath,
-		})
-	}
-
 	response, err := imageProcessor.AlignAndAverage(ctx, &stellacompv1.AlignAndAverageRequest{
-		Images:         images,
+		Images:         previewInputImages(previewPaths),
 		OutputPath:     outputPath,
 		BaseImageIndex: int32(baseImageIndex),
 	})
@@ -378,6 +484,18 @@ func runJob(ctx context.Context, jobs *jobStore, jobID string, imageProcessor pr
 		job.Warnings = warnings
 		job.UpdatedAt = time.Now().UTC()
 	})
+}
+
+func previewInputImages(previewPaths []string) []*stellacompv1.InputImage {
+	images := make([]*stellacompv1.InputImage, 0, len(previewPaths))
+	for _, previewPath := range previewPaths {
+		images = append(images, &stellacompv1.InputImage{
+			SourcePath:  previewPath,
+			PreviewPath: previewPath,
+		})
+	}
+
+	return images
 }
 
 func (store *jobStore) put(job *jobResponse) {

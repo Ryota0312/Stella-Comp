@@ -40,6 +40,25 @@ pub struct AlignAndAverageOutput {
 }
 
 #[derive(Clone, Debug)]
+pub struct EstimateTransformsInput {
+    pub images: Vec<InputImage>,
+    pub base_image_index: usize,
+}
+
+#[derive(Clone, Debug)]
+pub struct EstimateTransformsOutput {
+    pub transforms: Vec<ImageTransform>,
+    pub warnings: Vec<ProcessingWarning>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ImageTransform {
+    pub image_index: usize,
+    pub affine: [f64; 6],
+    pub estimated: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct ProcessingWarning {
     pub code: String,
     pub message: String,
@@ -163,6 +182,71 @@ pub fn align_and_average(
     })
 }
 
+pub fn estimate_transforms(
+    input: EstimateTransformsInput,
+) -> Result<EstimateTransformsOutput, StellaCompError> {
+    if input.images.is_empty() {
+        return Err(StellaCompError::EmptyInput);
+    }
+
+    if input.base_image_index >= input.images.len() {
+        return Err(StellaCompError::InvalidBaseImageIndex {
+            index: input.base_image_index,
+            len: input.images.len(),
+        });
+    }
+
+    let base_path = processing_path(&input.images[input.base_image_index]);
+    let base_image = load_image(base_path)?;
+    let mut warnings = Vec::new();
+    let mut transforms = Vec::with_capacity(input.images.len());
+
+    for (index, input_image) in input.images.iter().enumerate() {
+        if !input_image.preview_path.is_empty()
+            && input_image.preview_path != input_image.source_path
+        {
+            warnings.push(ProcessingWarning {
+                code: "PREVIEW_ONLY_ALIGNMENT".to_string(),
+                message: format!("image {index} transform is estimated in preview coordinates"),
+            });
+        }
+
+        if index == input.base_image_index {
+            transforms.push(ImageTransform {
+                image_index: index,
+                affine: identity_affine(),
+                estimated: true,
+            });
+            continue;
+        }
+
+        let image = load_image(processing_path(input_image))?;
+        match estimate_affine_to_base(&base_image, &image) {
+            Ok(affine) => transforms.push(ImageTransform {
+                image_index: index,
+                affine,
+                estimated: true,
+            }),
+            Err(error) => {
+                warnings.push(ProcessingWarning {
+                    code: "TRANSFORM_ESTIMATE_FAILED".to_string(),
+                    message: format!("image {index} uses identity transform: {error}"),
+                });
+                transforms.push(ImageTransform {
+                    image_index: index,
+                    affine: identity_affine(),
+                    estimated: false,
+                });
+            }
+        }
+    }
+
+    Ok(EstimateTransformsOutput {
+        transforms,
+        warnings,
+    })
+}
+
 fn processing_path(input: &InputImage) -> &str {
     if !input.preview_path.is_empty() {
         &input.preview_path
@@ -182,6 +266,40 @@ fn align_to_base(
     base_image: &DynamicImage,
     target_image: &DynamicImage,
 ) -> Result<DynamicImage, StellaCompError> {
+    let affine_values = estimate_affine_to_base(base_image, target_image)?;
+    let affine = Mat::from_slice_2d(&[
+        &[affine_values[0], affine_values[1], affine_values[2]],
+        &[affine_values[3], affine_values[4], affine_values[5]],
+    ])
+    .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+
+    let target_mat = dynamic_image_to_mat(target_image, IMREAD_COLOR);
+    let mut converted = Mat::default();
+    let (base_width, base_height) = base_image.dimensions();
+    warp_affine(
+        &target_mat,
+        &mut converted,
+        &affine,
+        opencv::core::Size::new(base_width as i32, base_height as i32),
+        1,
+        0,
+        Scalar::default(),
+    )
+    .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+
+    if converted.empty() {
+        return Err(StellaCompError::OpenCv(
+            "warp_affine produced an empty image".to_string(),
+        ));
+    }
+
+    Ok(mat_to_dynamic_image(&converted))
+}
+
+fn estimate_affine_to_base(
+    base_image: &DynamicImage,
+    target_image: &DynamicImage,
+) -> Result<[f64; 6], StellaCompError> {
     let (k1, _, k2, _, matched_points) = matches(base_image, target_image)
         .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
 
@@ -235,27 +353,7 @@ fn align_to_base(
 
     validate_partial_affine(&affine)?;
 
-    let target_mat = dynamic_image_to_mat(target_image, IMREAD_COLOR);
-    let mut converted = Mat::default();
-    let (base_width, base_height) = base_image.dimensions();
-    warp_affine(
-        &target_mat,
-        &mut converted,
-        &affine,
-        opencv::core::Size::new(base_width as i32, base_height as i32),
-        1,
-        0,
-        Scalar::default(),
-    )
-    .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
-
-    if converted.empty() {
-        return Err(StellaCompError::OpenCv(
-            "warp_affine produced an empty image".to_string(),
-        ));
-    }
-
-    Ok(mat_to_dynamic_image(&converted))
+    mat_to_affine(&affine)
 }
 
 fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
@@ -274,4 +372,31 @@ fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
     }
 
     Ok(())
+}
+
+fn mat_to_affine(affine: &Mat) -> Result<[f64; 6], StellaCompError> {
+    Ok([
+        *affine
+            .at_2d::<f64>(0, 0)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+        *affine
+            .at_2d::<f64>(0, 1)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+        *affine
+            .at_2d::<f64>(0, 2)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+        *affine
+            .at_2d::<f64>(1, 0)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+        *affine
+            .at_2d::<f64>(1, 1)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+        *affine
+            .at_2d::<f64>(1, 2)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?,
+    ])
+}
+
+fn identity_affine() -> [f64; 6] {
+    [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
 }

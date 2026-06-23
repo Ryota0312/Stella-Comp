@@ -74,6 +74,7 @@ Go API の初期エンドポイント:
 ```text
 GET  /api/health
 POST /api/preview-uploads
+POST /api/preview-alignments
 POST /api/jobs
 GET  /api/jobs/:jobID
 GET  /api/jobs/:jobID/result
@@ -81,7 +82,9 @@ GET  /api/jobs/:jobID/result
 
 `POST /api/preview-uploads` は preview JPEG を `multipart/form-data` の `previews` フィールドで受け取り、`.data/uploads/previews/<session-id>/` に保存します。
 
-`POST /api/jobs` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `AlignAndAverage` へ渡します。MVP の現状では preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、その絶対パスを worker へ渡します。ジョブ状態は Go API プロセス内のメモリで管理します。
+`POST /api/preview-alignments` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `EstimateTransforms` へ渡します。レスポンスは各画像を基準preview座標系へ写す 2x3 アフィン変換行列です。Web UI はこの行列を使い、ブラウザの Canvas 上で preview JPEG をアフィン変換して加算平均合成し、PNG を生成します。
+
+`POST /api/jobs` は従来のサーバー合成用エンドポイントとして残しています。preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、Rust worker の `AlignAndAverage` で preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、その絶対パスを worker へ渡します。ジョブ状態は Go API プロセス内のメモリで管理します。
 
 ```json
 {
@@ -131,7 +134,8 @@ mise exec -- cargo check
 - CR3 は Web Worker で埋め込み JPEG 候補を抽出し、プレビュー JPEG 生成に使います。
 - CR2 など未対応 RAW は現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
-- 現在の `/api/jobs` は、アップロード済み preview JPEG を Rust worker に渡し、位置合わせと加算平均合成を実行します。
+- 現在の Web UI は、アップロード済み preview JPEG を `/api/preview-alignments` 経由で Rust worker に渡し、返却された変換行列でブラウザ側プレビュー合成を実行します。
+- `/api/jobs` はサーバー側 preview JPEG 合成の比較・フォールバック用として残しています。
 - 最終的な RAW 現像、プレビュー座標系から元画像座標系への変換行列補正、元画像ベースの合成は後続で拡張します。
 
 ## ポート競合時

@@ -1,14 +1,13 @@
-import type { ResultRow } from "../types";
-import type { JobSummary } from "../uploadApi";
-import { statusText } from "../utils";
+import type { ClientCompositeStatus, ResultRow } from "../types";
+import { clientCompositeStatusText } from "../utils";
 
 type ResultPanelProps = {
-  job: JobSummary | null;
+  clientCompositeStatus: ClientCompositeStatus;
   resultRows: ResultRow[];
   resultUrl: string | null;
 };
 
-export function ResultPanel({ job, resultRows, resultUrl }: ResultPanelProps) {
+export function ResultPanel({ clientCompositeStatus, resultRows, resultUrl }: ResultPanelProps) {
   return (
     <section className="panel panel-results">
       <header className="panel-header">
@@ -30,7 +29,7 @@ export function ResultPanel({ job, resultRows, resultUrl }: ResultPanelProps) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={resultUrl} alt="Composite result" />
         ) : (
-          <span>{job ? statusText(job.status) : "No result yet"}</span>
+          <span>{clientCompositeStatusText(clientCompositeStatus)}</span>
         )}
       </div>
       <div className="result-actions">
@@ -46,7 +45,7 @@ export function ResultPanel({ job, resultRows, resultUrl }: ResultPanelProps) {
         <a
           className={`primary-action link-action${resultUrl ? "" : " link-disabled"}`}
           href={resultUrl ?? undefined}
-          download={job ? `stella-comp-${job.jobId}.jpg` : undefined}
+          download="stella-comp-preview-stack.png"
           aria-disabled={!resultUrl}
         >
           Download Output

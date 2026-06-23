@@ -3,7 +3,10 @@ use std::{env, error::Error};
 use tonic::{transport::Server, Request, Response, Status};
 
 use pb::image_processor_server::{ImageProcessor, ImageProcessorServer};
-use pb::{AlignAndAverageRequest, AlignAndAverageResponse, ProcessingWarning};
+use pb::{
+    AlignAndAverageRequest, AlignAndAverageResponse, EstimateTransformsRequest,
+    EstimateTransformsResponse, ImageTransform, ProcessingWarning,
+};
 
 pub mod pb {
     tonic::include_proto!("stellacomp.v1");
@@ -42,6 +45,52 @@ impl ImageProcessor for WorkerService {
 
         Ok(Response::new(AlignAndAverageResponse {
             output_path: output.output_path,
+            warnings: output
+                .warnings
+                .into_iter()
+                .map(|warning| ProcessingWarning {
+                    code: warning.code,
+                    message: warning.message,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn estimate_transforms(
+        &self,
+        request: Request<EstimateTransformsRequest>,
+    ) -> Result<Response<EstimateTransformsResponse>, Status> {
+        let request = request.into_inner();
+        let base_image_index = usize::try_from(request.base_image_index)
+            .map_err(|_| Status::invalid_argument("base_image_index must be zero or greater"))?;
+
+        let input = stellacomp::EstimateTransformsInput {
+            images: request
+                .images
+                .into_iter()
+                .map(|image| stellacomp::InputImage {
+                    source_path: image.source_path,
+                    preview_path: image.preview_path,
+                    source_size: image.source_size.map(to_stellacomp_size),
+                    preview_size: image.preview_size.map(to_stellacomp_size),
+                })
+                .collect(),
+            base_image_index,
+        };
+
+        let output = stellacomp::estimate_transforms(input)
+            .map_err(|error| Status::internal(error.to_string()))?;
+
+        Ok(Response::new(EstimateTransformsResponse {
+            transforms: output
+                .transforms
+                .into_iter()
+                .map(|transform| ImageTransform {
+                    image_index: transform.image_index as u32,
+                    affine: transform.affine.to_vec(),
+                    estimated: transform.estimated,
+                })
+                .collect(),
             warnings: output
                 .warnings
                 .into_iter()
