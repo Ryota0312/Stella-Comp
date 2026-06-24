@@ -72,3 +72,10 @@ export type ResultRow = {
   label: string;
   value: string;
 };
+
+export type CompositeOutput = {
+  previewBlob: Blob;
+  downloadBlob: Blob;
+  downloadFileName: string;
+  label: "png" | "tiff";
+};

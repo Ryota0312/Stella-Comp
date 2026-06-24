@@ -95,7 +95,10 @@ export function UploadWorkspace() {
     jobError,
     rawCompositeProgress,
     rawCompositeStatus,
-    resultUrl,
+    resultDownloadFileName,
+    resultDownloadUrl,
+    resultLabel,
+    resultPreviewUrl,
     runComposite,
     runRawComposite,
   } = useCompositeJob({
@@ -197,10 +200,11 @@ export function UploadWorkspace() {
     () => [
       {
         label: copy.resultRows.resultPng,
-        value:
-          clientCompositeStatus === "completed"
-            ? copy.resultRows.generatedInBrowser
-            : copy.resultRows.notGenerated,
+        value: resultLabel
+          ? resultLabel === "tiff"
+            ? copy.resultRows.resultTiff
+            : copy.resultRows.resultPreviewPng
+          : copy.resultRows.notGenerated,
       },
       {
         label: copy.resultRows.stackStatus,
@@ -208,7 +212,7 @@ export function UploadWorkspace() {
       },
       { label: copy.resultRows.warnings, value: `${clientWarnings.length}` },
     ],
-    [clientCompositeStatus, clientWarnings.length, copy, language],
+    [clientCompositeStatus, clientWarnings.length, copy, language, resultLabel],
   );
 
   function handleSelectFrames() {
@@ -277,9 +281,12 @@ export function UploadWorkspace() {
         <ResultPanel
           clientCompositeStatus={clientCompositeStatus}
           copy={copy}
+          downloadFileName={resultDownloadFileName}
+          downloadUrl={resultDownloadUrl}
           language={language}
+          resultLabel={resultLabel}
           resultRows={resultRows}
-          resultUrl={resultUrl}
+          previewUrl={resultPreviewUrl}
         />
       </section>
     </main>

@@ -1,4 +1,4 @@
-import type { QueueItem } from "./types";
+import type { CompositeOutput, QueueItem } from "./types";
 import type { ImageTransform } from "./uploadApi";
 
 type StackPreviewOptions = {
@@ -20,7 +20,7 @@ export async function stackPreviewImages({
   itemIds,
   transforms,
   baseImageIndex,
-}: StackPreviewOptions): Promise<Blob> {
+}: StackPreviewOptions): Promise<CompositeOutput> {
   const orderedItems = itemIds
     .map((id) => items.find((item) => item.id === id))
     .filter((item): item is QueueItem => Boolean(item?.previewBlob));
@@ -97,7 +97,12 @@ export async function stackPreviewImages({
     throw new Error("Composite PNG export failed");
   }
 
-  return blob;
+  return {
+    previewBlob: blob,
+    downloadBlob: blob,
+    downloadFileName: "stella-comp-preview-stack.png",
+    label: "png",
+  };
 }
 
 function identityAffine() {

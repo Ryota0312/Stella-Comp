@@ -63,13 +63,13 @@
 5. Go API が推定した変換行列を Web UI へ返す。
 6. Web UI がブラウザ上で preview JPEG に変換行列を適用し、加算平均合成する。
 7. Web UI が preview 合成結果を PNG としてプレビュー、ダウンロードできるようにする。
-8. ユーザー確認後の明示操作で、ブラウザで RAW を現像し、preview 座標系の変換行列を元画像座標系へ補正して RAW 現像画像を加算平均合成する。処理中は本画像処理の進捗バーを表示する。
+8. ユーザー確認後の明示操作で、ブラウザで RAW を現像し、preview 座標系の変換行列を元画像座標系へ補正して RAW 現像画像を加算平均合成する。処理中は本画像処理の進捗バーを表示し、Lightroom などで後処理する成果物として TIFF をダウンロードできるようにする。画面表示用 preview は PNG を併せて生成する。
 
-MVP の現在実装では、D&D 後に preview JPEG の準備が完了した時点で Web UI が preview JPEG をアップロードし、`POST /api/preview-alignments` で非同期ジョブを作成し、Go API が Rust worker の `EstimateTransforms` から各画像の 2x3 アフィン変換行列を取得する。Web UI は `GET /api/preview-alignments/:alignmentJobID` を polling し、完了後に返却された行列を使ってブラウザの Canvas 上で preview JPEG を変換し、加算平均した PNG を生成する。さらに、ユーザー確認後の明示操作で `libraw-wasm` による RAW 現像と、preview 行列を元画像サイズへスケール補正した Canvas 上での RAW 現像画像の加算平均合成を試す。RAW 現像と元画像合成中は、読み込み・合成・PNG 書き出しの進捗を表示する。`POST /api/jobs` は従来のサーバー側 preview JPEG 合成の比較・フォールバック用として残す。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、worker へ絶対パスを渡す。ジョブ永続化は後続で実装する。
+MVP の現在実装では、D&D 後に preview JPEG の準備が完了した時点で Web UI が preview JPEG をアップロードし、`POST /api/preview-alignments` で非同期ジョブを作成し、Go API が Rust worker の `EstimateTransforms` から各画像の 2x3 アフィン変換行列を取得する。Web UI は `GET /api/preview-alignments/:alignmentJobID` を polling し、完了後に返却された行列を使ってブラウザの Canvas 上で preview JPEG を変換し、加算平均した PNG を生成する。さらに、ユーザー確認後の明示操作で `libraw-wasm` による RAW 現像と、preview 行列を元画像サイズへスケール補正した Canvas 上での RAW 現像画像の加算平均合成を試す。RAW 現像と元画像合成中は、読み込み・合成・TIFF 書き出しの進捗を表示する。結果表示は PNG preview、ダウンロードは TIFF とする。`POST /api/jobs` は従来のサーバー側 preview JPEG 合成の比較・フォールバック用として残す。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、worker へ絶対パスを渡す。ジョブ永続化は後続で実装する。
 
 preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景フレームに合わせて回転・平行移動・等方スケールの部分アフィン変換を推定する。MVP では、RANSAC で妥当な変換を推定できないフレームは `TRANSFORM_ESTIMATE_FAILED` warning を付けて identity transform を返し、クライアント側合成全体は可能な限り完了させる。これは結果ファイル確認を優先するための暫定挙動であり、後続で星検出ベースのマッチングやより安定した変換推定へ置き換える。
 
-ブラウザ側でのアフィン変換行列の適用は、まず preview JPEG の PoC 合成で検証する。最終的な RAW/TIFF 合成では、preview 座標系の変換行列を元画像座標系へ補正し、まずブラウザ WASM で重いピクセル処理を担えるかを実測する。サーバー負荷を避けるため、プロトタイプでは RAW 現像もブラウザ側で試す。
+ブラウザ側でのアフィン変換行列の適用は、まず preview JPEG の PoC 合成で検証する。最終的な RAW/TIFF 合成では、preview 座標系の変換行列を元画像座標系へ補正し、まずブラウザ WASM で重いピクセル処理を担えるかを実測する。後処理前提の本処理成果物は TIFF を基本形式にする。サーバー負荷を避けるため、プロトタイプでは RAW 現像もブラウザ側で試す。
 
 プレビュー画像で得た変換行列を元画像に適用するため、元画像サイズ、プレビュー画像サイズ、EXIF 回転、RAW 現像時のクロップや回転を追跡する。
 
@@ -135,7 +135,7 @@ preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景
 - `GET /api/jobs/:jobID/result`
   - `completed` の場合のみ結果 JPEG を返す。
 
-Web UI は preview JPEG の準備完了後、自動で preview JPEG をアップロードし、`POST /api/preview-alignments` を呼び出して変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling して完了後に変換行列を取得し、ブラウザ側で preview JPEG をスタックする。結果は Blob URL として画面プレビュー、別タブ表示、PNG ダウンロードリンクに使う。warning が返った場合は `TRANSFORM_ESTIMATE_FAILED` などの code と message を Execution パネルに表示する。RAW 現像と元画像合成はユーザーが preview 結果を確認した後の明示操作でのみ開始する。`POST /api/jobs` と `GET /api/jobs/:jobID/result` はサーバー側合成の比較・フォールバック用として残す。
+Web UI は preview JPEG の準備完了後、自動で preview JPEG をアップロードし、`POST /api/preview-alignments` を呼び出して変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling して完了後に変換行列を取得し、ブラウザ側で preview JPEG をスタックする。preview 合成結果は Blob URL として画面プレビュー、別タブ表示、PNG ダウンロードリンクに使う。RAW 現像と元画像合成の結果は、画面表示用 PNG preview と、Lightroom などで後処理するための TIFF ダウンロードリンクに分ける。warning が返った場合は `TRANSFORM_ESTIMATE_FAILED` などの code と message を Execution パネルに表示する。RAW 現像と元画像合成はユーザーが preview 結果を確認した後の明示操作でのみ開始する。`POST /api/jobs` と `GET /api/jobs/:jobID/result` はサーバー側合成の比較・フォールバック用として残す。
 
 Rust 側には preview JPEG の調査用 example として以下を置く。
 

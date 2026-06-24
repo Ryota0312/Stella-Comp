@@ -138,7 +138,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
 
-現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認した後の明示操作で開始し、処理中は進捗を表示する。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ永続化は後続で拡張する。
+現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認した後の明示操作で開始し、処理中は進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ永続化は後続で拡張する。
 
 ## 初期 gRPC API 案
 

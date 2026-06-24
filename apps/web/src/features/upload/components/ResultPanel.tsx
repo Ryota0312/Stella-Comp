@@ -4,18 +4,27 @@ import { clientCompositeStatusText, type Language, type UploadCopy } from "../i1
 type ResultPanelProps = {
   clientCompositeStatus: ClientCompositeStatus;
   copy: UploadCopy;
+  downloadFileName: string | null;
+  downloadUrl: string | null;
   language: Language;
+  resultLabel: string | null;
   resultRows: ResultRow[];
-  resultUrl: string | null;
+  previewUrl: string | null;
 };
 
 export function ResultPanel({
   clientCompositeStatus,
   copy,
+  downloadFileName,
+  downloadUrl,
   language,
+  resultLabel,
   resultRows,
-  resultUrl,
+  previewUrl,
 }: ResultPanelProps) {
+  const hasPreview = Boolean(previewUrl);
+  const hasDownload = Boolean(downloadUrl);
+
   return (
     <section className="panel panel-results">
       <header className="panel-header">
@@ -33,30 +42,30 @@ export function ResultPanel({
         ))}
       </div>
       <div className="result-preview">
-        {resultUrl ? (
+        {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={resultUrl} alt={copy.result.compositeAlt} />
+          <img src={previewUrl} alt={copy.result.compositeAlt} />
         ) : (
           <span>{clientCompositeStatusText(clientCompositeStatus, language)}</span>
         )}
       </div>
       <div className="result-actions">
         <a
-          className={`secondary-action link-action${resultUrl ? "" : " link-disabled"}`}
-          href={resultUrl ?? undefined}
+          className={`secondary-action link-action${hasPreview ? "" : " link-disabled"}`}
+          href={previewUrl ?? undefined}
           target="_blank"
           rel="noreferrer"
-          aria-disabled={!resultUrl}
+          aria-disabled={!hasPreview}
         >
           {copy.result.openPreview}
         </a>
         <a
-          className={`primary-action link-action${resultUrl ? "" : " link-disabled"}`}
-          href={resultUrl ?? undefined}
-          download="stella-comp-preview-stack.png"
-          aria-disabled={!resultUrl}
+          className={`primary-action link-action${hasDownload ? "" : " link-disabled"}`}
+          href={downloadUrl ?? undefined}
+          download={downloadFileName ?? undefined}
+          aria-disabled={!hasDownload}
         >
-          {copy.result.downloadOutput}
+          {resultLabel === "tiff" ? copy.result.downloadTiff : copy.result.downloadOutput}
         </a>
       </div>
     </section>

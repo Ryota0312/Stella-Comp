@@ -1,6 +1,7 @@
 import { rawExtensions } from "./constants";
 import { developRawWithLibRaw } from "./previewGeneration";
-import type { QueueItem } from "./types";
+import { encodeTiffRgb16 } from "./tiffEncoding";
+import type { CompositeOutput, QueueItem } from "./types";
 import type { ImageTransform } from "./uploadApi";
 
 type StackSourceOptions = {
@@ -24,7 +25,7 @@ export async function stackSourceImages({
   onProgress,
   transforms,
   baseImageIndex,
-}: StackSourceOptions): Promise<Blob> {
+}: StackSourceOptions): Promise<CompositeOutput> {
   const orderedItems = itemIds
     .map((id) => items.find((item) => item.id === id))
     .filter((item): item is QueueItem => Boolean(item?.previewBlob));
@@ -114,7 +115,8 @@ export async function stackSourceImages({
     reportProgress(item.name);
   }
 
-  reportProgress("PNG");
+  reportProgress("TIFF");
+  const tiffBlob = encodeTiffRgb16({ width, height, red, green, blue, counts });
   const output = sampleContext.createImageData(width, height);
   for (let pixel = 0, offset = 0; pixel < pixelCount; pixel += 1, offset += 4) {
     const count = counts[pixel];
@@ -135,12 +137,17 @@ export async function stackSourceImages({
     sampleCanvas.toBlob(resolve, "image/png");
   });
   if (!blob) {
-    throw new Error("RAW composite PNG export failed");
+    throw new Error("RAW composite preview PNG export failed");
   }
 
   completedProgress += 1;
-  reportProgress("PNG");
-  return blob;
+  reportProgress("TIFF");
+  return {
+    previewBlob: blob,
+    downloadBlob: tiffBlob,
+    downloadFileName: "stella-comp-source-stack.tiff",
+    label: "tiff",
+  };
 }
 
 function previewAffineToSourceAffine(

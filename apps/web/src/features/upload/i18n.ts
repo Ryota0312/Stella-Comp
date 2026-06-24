@@ -76,6 +76,7 @@ export const uploadCopy = {
       compositeAlt: "合成結果",
       openPreview: "プレビューを開く",
       downloadOutput: "結果をダウンロード",
+      downloadTiff: "TIFFをダウンロード",
     },
     timeline: {
       selectedFrames: "選択フレーム",
@@ -91,7 +92,9 @@ export const uploadCopy = {
       rawStack: "RAW合成",
     },
     resultRows: {
-      resultPng: "結果PNG",
+      resultPng: "結果形式",
+      resultPreviewPng: "プレビューPNG",
+      resultTiff: "本処理TIFF",
       generatedInBrowser: "ブラウザで生成済み",
       notGenerated: "未生成",
       stackStatus: "合成状態",
@@ -224,6 +227,7 @@ export const uploadCopy = {
       compositeAlt: "Composite result",
       openPreview: "Open Preview",
       downloadOutput: "Download Output",
+      downloadTiff: "Download TIFF",
     },
     timeline: {
       selectedFrames: "Selected frames",
@@ -239,7 +243,9 @@ export const uploadCopy = {
       rawStack: "RAW stack",
     },
     resultRows: {
-      resultPng: "Result PNG",
+      resultPng: "Result format",
+      resultPreviewPng: "Preview PNG",
+      resultTiff: "Source TIFF",
       generatedInBrowser: "Generated in browser",
       notGenerated: "Not generated",
       stackStatus: "Stack status",

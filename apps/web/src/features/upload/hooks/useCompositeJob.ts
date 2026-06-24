@@ -5,6 +5,7 @@ import { stackSourceImages } from "../rawStacking";
 import type {
   ClientCompositeStatus,
   CompositeProgress,
+  CompositeOutput,
   QueueItem,
   RawCompositeStatus,
 } from "../types";
@@ -43,14 +44,21 @@ export function useCompositeJob({
   const [rawCompositeStatus, setRawCompositeStatus] = useState<RawCompositeStatus>("idle");
   const [clientWarnings, setClientWarnings] = useState<ProcessingWarning[]>([]);
   const [rawCompositeProgress, setRawCompositeProgress] = useState<CompositeProgress | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(null);
+  const [resultDownloadUrl, setResultDownloadUrl] = useState<string | null>(null);
+  const [resultDownloadFileName, setResultDownloadFileName] = useState<string | null>(null);
+  const [resultLabel, setResultLabel] = useState<CompositeOutput["label"] | null>(null);
   const [lastAlignment, setLastAlignment] = useState<PreviewAlignmentSummary | null>(null);
-  const resultUrlRef = useRef<string | null>(null);
+  const resultPreviewUrlRef = useRef<string | null>(null);
+  const resultDownloadUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
-      if (resultUrlRef.current) {
-        URL.revokeObjectURL(resultUrlRef.current);
+      if (resultPreviewUrlRef.current) {
+        URL.revokeObjectURL(resultPreviewUrlRef.current);
+      }
+      if (resultDownloadUrlRef.current) {
+        URL.revokeObjectURL(resultDownloadUrlRef.current);
       }
     };
   }, []);
@@ -65,11 +73,18 @@ export function useCompositeJob({
     setRawCompositeProgress(null);
     setClientWarnings([]);
     setLastAlignment(null);
-    if (resultUrlRef.current) {
-      URL.revokeObjectURL(resultUrlRef.current);
-      resultUrlRef.current = null;
+    if (resultPreviewUrlRef.current) {
+      URL.revokeObjectURL(resultPreviewUrlRef.current);
+      resultPreviewUrlRef.current = null;
     }
-    setResultUrl(null);
+    if (resultDownloadUrlRef.current) {
+      URL.revokeObjectURL(resultDownloadUrlRef.current);
+      resultDownloadUrlRef.current = null;
+    }
+    setResultPreviewUrl(null);
+    setResultDownloadUrl(null);
+    setResultDownloadFileName(null);
+    setResultLabel(null);
   }, []);
 
   const baseIndexForJob = useCallback(() => {
@@ -84,13 +99,21 @@ export function useCompositeJob({
     rawCompositeStatus === "developing" ||
     rawCompositeStatus === "stacking";
 
-  const publishResult = useCallback((blob: Blob) => {
-    if (resultUrlRef.current) {
-      URL.revokeObjectURL(resultUrlRef.current);
+  const publishResult = useCallback((output: CompositeOutput) => {
+    if (resultPreviewUrlRef.current) {
+      URL.revokeObjectURL(resultPreviewUrlRef.current);
     }
-    const nextResultUrl = URL.createObjectURL(blob);
-    resultUrlRef.current = nextResultUrl;
-    setResultUrl(nextResultUrl);
+    if (resultDownloadUrlRef.current) {
+      URL.revokeObjectURL(resultDownloadUrlRef.current);
+    }
+    const nextPreviewUrl = URL.createObjectURL(output.previewBlob);
+    const nextDownloadUrl = URL.createObjectURL(output.downloadBlob);
+    resultPreviewUrlRef.current = nextPreviewUrl;
+    resultDownloadUrlRef.current = nextDownloadUrl;
+    setResultPreviewUrl(nextPreviewUrl);
+    setResultDownloadUrl(nextDownloadUrl);
+    setResultDownloadFileName(output.downloadFileName);
+    setResultLabel(output.label);
   }, []);
 
   const estimateAlignment = useCallback(
@@ -125,14 +148,14 @@ export function useCompositeJob({
       const alignment = await estimateAlignment(summary, baseImageIndex);
 
       setClientCompositeStatus("stacking");
-      const resultBlob = await stackPreviewImages({
+      const result = await stackPreviewImages({
         items,
         itemIds: uploadedItemIdsRef.current,
         transforms: alignment.transforms,
         baseImageIndex,
       });
 
-      publishResult(resultBlob);
+      publishResult(result);
       setClientCompositeStatus("completed");
     } catch (error) {
       setClientCompositeStatus("failed");
@@ -180,7 +203,7 @@ export function useCompositeJob({
       }
 
       setRawCompositeStatus("developing");
-      const resultBlob = await stackSourceImages({
+      const result = await stackSourceImages({
         items,
         itemIds: uploadedItemIdsRef.current,
         onProgress: setRawCompositeProgress,
@@ -188,7 +211,7 @@ export function useCompositeJob({
         baseImageIndex,
       });
 
-      publishResult(resultBlob);
+      publishResult(result);
       setRawCompositeStatus("completed");
       setRawCompositeProgress(null);
     } catch (error) {
@@ -219,7 +242,10 @@ export function useCompositeJob({
     jobError,
     rawCompositeProgress,
     rawCompositeStatus,
-    resultUrl,
+    resultDownloadFileName,
+    resultDownloadUrl,
+    resultLabel,
+    resultPreviewUrl,
     runComposite,
     runRawComposite,
   };
