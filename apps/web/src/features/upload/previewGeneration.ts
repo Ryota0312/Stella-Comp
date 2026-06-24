@@ -4,9 +4,10 @@ type GeneratedPreview = {
   height: number;
 };
 
-type RawDevelopedPreview = GeneratedPreview & {
-  sourceWidth: number;
-  sourceHeight: number;
+export type DevelopedRawImage = {
+  imageData: ImageData;
+  width: number;
+  height: number;
   elapsedMs: number;
 };
 
@@ -31,11 +32,7 @@ type WorkerResponse =
 
 let rawPreviewWorker: Worker | null = null;
 
-export async function createPreviewJpegFromRawWithLibRaw(
-  source: File,
-  maxEdge: number,
-  quality: number,
-): Promise<RawDevelopedPreview> {
+export async function developRawWithLibRaw(source: File): Promise<DevelopedRawImage> {
   const startedAt = performance.now();
   const { default: LibRaw } = await import("libraw-wasm");
   const raw = new LibRaw();
@@ -55,18 +52,13 @@ export async function createPreviewJpegFromRawWithLibRaw(
     }
 
     const rgba = toRgba8(decoded.data, decoded.width, decoded.height, decoded.colors);
-    const preview = await createPreviewJpegFromRgba(
-      rgba,
-      decoded.width,
-      decoded.height,
-      maxEdge,
-      quality,
-    );
+    const imageDataBytes: ImageDataArray = new Uint8ClampedArray(rgba.length);
+    imageDataBytes.set(rgba);
 
     return {
-      ...preview,
-      sourceWidth: decoded.width,
-      sourceHeight: decoded.height,
+      imageData: new ImageData(imageDataBytes, decoded.width, decoded.height),
+      width: decoded.width,
+      height: decoded.height,
       elapsedMs: Math.round(performance.now() - startedAt),
     };
   } finally {
@@ -101,53 +93,6 @@ export async function createPreviewJpeg(
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (result) => {
-        if (result) {
-          resolve(result);
-        } else {
-          reject(new Error("JPEG encoding failed"));
-        }
-      },
-      "image/jpeg",
-      quality,
-    );
-  });
-
-  return { blob, width, height };
-}
-
-async function createPreviewJpegFromRgba(
-  rgba: Uint8ClampedArray,
-  sourceWidth: number,
-  sourceHeight: number,
-  maxEdge: number,
-  quality: number,
-): Promise<GeneratedPreview> {
-  const sourceCanvas = document.createElement("canvas");
-  sourceCanvas.width = sourceWidth;
-  sourceCanvas.height = sourceHeight;
-  const sourceContext = sourceCanvas.getContext("2d");
-  if (!sourceContext) {
-    throw new Error("Canvas is unavailable");
-  }
-  const imageDataBytes: ImageDataArray = new Uint8ClampedArray(rgba.length);
-  imageDataBytes.set(rgba);
-  sourceContext.putImageData(new ImageData(imageDataBytes, sourceWidth, sourceHeight), 0, 0);
-
-  const scale = Math.min(1, maxEdge / Math.max(sourceWidth, sourceHeight));
-  const width = Math.max(1, Math.round(sourceWidth * scale));
-  const height = Math.max(1, Math.round(sourceHeight * scale));
-  const previewCanvas = document.createElement("canvas");
-  previewCanvas.width = width;
-  previewCanvas.height = height;
-  const previewContext = previewCanvas.getContext("2d");
-  if (!previewContext) {
-    throw new Error("Canvas is unavailable");
-  }
-  previewContext.drawImage(sourceCanvas, 0, 0, width, height);
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    previewCanvas.toBlob(
       (result) => {
         if (result) {
           resolve(result);

@@ -14,6 +14,7 @@ import {
   clientCompositeStatusText,
   defaultLanguage,
   languages,
+  rawCompositeStatusText,
   type Language,
   uploadCopy,
 } from "./i18n";
@@ -91,8 +92,10 @@ export function UploadWorkspace() {
     isJobBusy,
     job,
     jobError,
+    rawCompositeStatus,
     resultUrl,
     runComposite,
+    runRawComposite,
   } = useCompositeJob({
     activeId,
     canRunJob,
@@ -138,10 +141,29 @@ export function UploadWorkspace() {
             ? "warn"
             : clientCompositeStatus === "idle"
               ? "muted"
+            : "active",
+      },
+      {
+        label: copy.timeline.rawStack,
+        value: rawCompositeStatusText(rawCompositeStatus, language),
+        tone:
+          rawCompositeStatus === "failed"
+            ? "warn"
+            : rawCompositeStatus === "idle"
+              ? "muted"
               : "active",
       },
     ],
-    [clientCompositeStatus, copy, items.length, language, pendingRawCount, readyCount, uploadSummary],
+    [
+      clientCompositeStatus,
+      copy,
+      items.length,
+      language,
+      pendingRawCount,
+      rawCompositeStatus,
+      readyCount,
+      uploadSummary,
+    ],
   );
 
   const resultRows = useMemo<ResultRow[]>(
@@ -217,7 +239,9 @@ export function UploadWorkspace() {
           jobError={jobError}
           language={language}
           previewBytes={previewBytes}
+          rawCompositeStatus={rawCompositeStatus}
           runComposite={runComposite}
+          runRawComposite={runRawComposite}
           sourceBytes={sourceBytes}
           timeline={jobTimeline}
           uploadError={uploadError}

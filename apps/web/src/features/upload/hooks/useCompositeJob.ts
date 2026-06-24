@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { stackPreviewImages } from "../clientStacking";
 import type { UploadCopy } from "../i18n";
-import type { ClientCompositeStatus, QueueItem } from "../types";
+import { stackSourceImages } from "../rawStacking";
+import type { ClientCompositeStatus, QueueItem, RawCompositeStatus } from "../types";
 import {
   estimatePreviewAlignments,
+  type ImageTransform,
   type JobSummary,
+  type PreviewAlignmentSummary,
   type ProcessingWarning,
   type PreviewUploadSummary,
 } from "../uploadApi";
@@ -32,8 +35,10 @@ export function useCompositeJob({
   const [jobError, setJobError] = useState<string | null>(null);
   const [clientCompositeStatus, setClientCompositeStatus] =
     useState<ClientCompositeStatus>("idle");
+  const [rawCompositeStatus, setRawCompositeStatus] = useState<RawCompositeStatus>("idle");
   const [clientWarnings, setClientWarnings] = useState<ProcessingWarning[]>([]);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [lastAlignment, setLastAlignment] = useState<PreviewAlignmentSummary | null>(null);
   const resultUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,8 +54,10 @@ export function useCompositeJob({
     setJobError(null);
     if (!preserveStarting) {
       setClientCompositeStatus("idle");
+      setRawCompositeStatus("idle");
     }
     setClientWarnings([]);
+    setLastAlignment(null);
     if (resultUrlRef.current) {
       URL.revokeObjectURL(resultUrlRef.current);
       resultUrlRef.current = null;
@@ -66,7 +73,28 @@ export function useCompositeJob({
   const isJobBusy =
     clientCompositeStatus === "uploading" ||
     clientCompositeStatus === "estimating" ||
-    clientCompositeStatus === "stacking";
+    clientCompositeStatus === "stacking" ||
+    rawCompositeStatus === "developing" ||
+    rawCompositeStatus === "stacking";
+
+  const publishResult = useCallback((blob: Blob) => {
+    if (resultUrlRef.current) {
+      URL.revokeObjectURL(resultUrlRef.current);
+    }
+    const nextResultUrl = URL.createObjectURL(blob);
+    resultUrlRef.current = nextResultUrl;
+    setResultUrl(nextResultUrl);
+  }, []);
+
+  const estimateAlignment = useCallback(
+    async (summary: PreviewUploadSummary, baseImageIndex: number) => {
+      const alignment = await estimatePreviewAlignments(summary.sessionId, baseImageIndex);
+      setLastAlignment(alignment);
+      setClientWarnings(alignment.warnings ?? []);
+      return alignment;
+    },
+    [],
+  );
 
   const runComposite = useCallback(async () => {
     if (isJobBusy || !canRunJob) {
@@ -87,8 +115,7 @@ export function useCompositeJob({
 
       const baseImageIndex = baseIndexForJob();
       setClientCompositeStatus("estimating");
-      const alignment = await estimatePreviewAlignments(summary.sessionId, baseImageIndex);
-      setClientWarnings(alignment.warnings ?? []);
+      const alignment = await estimateAlignment(summary, baseImageIndex);
 
       setClientCompositeStatus("stacking");
       const resultBlob = await stackPreviewImages({
@@ -98,12 +125,7 @@ export function useCompositeJob({
         baseImageIndex,
       });
 
-      if (resultUrlRef.current) {
-        URL.revokeObjectURL(resultUrlRef.current);
-      }
-      const nextResultUrl = URL.createObjectURL(resultBlob);
-      resultUrlRef.current = nextResultUrl;
-      setResultUrl(nextResultUrl);
+      publishResult(resultBlob);
       setClientCompositeStatus("completed");
     } catch (error) {
       setClientCompositeStatus("failed");
@@ -113,8 +135,65 @@ export function useCompositeJob({
     baseIndexForJob,
     canRunJob,
     copy,
+    estimateAlignment,
     isJobBusy,
     items,
+    publishResult,
+    uploadPreviews,
+    uploadSummary,
+    uploadedItemIdsRef,
+  ]);
+
+  const runRawComposite = useCallback(async () => {
+    if (isJobBusy || !canRunJob) {
+      return;
+    }
+
+    setJobError(null);
+    setJob(null);
+    setRawCompositeStatus(uploadSummary || lastAlignment ? "developing" : "stacking");
+
+    try {
+      const summary = uploadSummary ?? (await uploadPreviews());
+      if (!summary) {
+        setRawCompositeStatus("idle");
+        return;
+      }
+
+      const baseImageIndex = baseIndexForJob();
+      let transforms: ImageTransform[];
+      if (lastAlignment?.sessionId === summary.sessionId) {
+        transforms = lastAlignment.transforms;
+      } else {
+        setClientCompositeStatus("estimating");
+        const alignment = await estimateAlignment(summary, baseImageIndex);
+        transforms = alignment.transforms;
+        setClientCompositeStatus("idle");
+      }
+
+      setRawCompositeStatus("developing");
+      const resultBlob = await stackSourceImages({
+        items,
+        itemIds: uploadedItemIdsRef.current,
+        transforms,
+        baseImageIndex,
+      });
+
+      publishResult(resultBlob);
+      setRawCompositeStatus("completed");
+    } catch (error) {
+      setRawCompositeStatus("failed");
+      setJobError(error instanceof Error ? error.message : copy.queueNotes.rawCompositeFailed);
+    }
+  }, [
+    baseIndexForJob,
+    canRunJob,
+    copy,
+    estimateAlignment,
+    isJobBusy,
+    items,
+    lastAlignment,
+    publishResult,
     uploadPreviews,
     uploadSummary,
     uploadedItemIdsRef,
@@ -127,7 +206,9 @@ export function useCompositeJob({
     isJobBusy,
     job,
     jobError,
+    rawCompositeStatus,
     resultUrl,
     runComposite,
+    runRawComposite,
   };
 }

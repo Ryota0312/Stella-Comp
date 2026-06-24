@@ -1,4 +1,4 @@
-import type { ClientCompositeStatus, QueueNote, QueueStatus } from "./types";
+import type { ClientCompositeStatus, QueueNote, QueueStatus, RawCompositeStatus } from "./types";
 import type { JobSummary } from "./uploadApi";
 
 export const languages = ["ja", "en"] as const;
@@ -15,7 +15,7 @@ export const uploadCopy = {
       eyebrow: "Stella Comp",
       title: "プレビュー取り込みワークスペース",
       description:
-        "RAWまたは圧縮済みフレームを追加し、可能な場合はブラウザで軽量プレビューを生成します。フルRAW処理を導入する前に、プレビューJPEGをアップロードできます。",
+        "RAWまたは圧縮済みフレームを追加し、軽量プレビューで位置合わせを確認してから、必要に応じてブラウザでRAW現像合成を実行します。",
       statusLabel: "プロジェクトの状態",
       selected: "選択済み",
       frames: (count: number) => `${count} フレーム`,
@@ -43,9 +43,9 @@ export const uploadCopy = {
       jpegQuality: "JPEG品質",
       uploadTarget: "アップロード対象",
       previewJpegOnly: "プレビューJPEGのみ",
-      fullRawLater: "フルRAWは後で対応",
+      fullRawLater: "RAW合成は確認後に実行",
       note:
-        "埋め込みプレビュー抽出が追加されるまで、RAWファイルはキューに保持されます。ブラウザで読み込めるファイルは、今すぐ圧縮してアップロードできます。",
+        "RAWはD&D直後には現像せず、まず埋め込みプレビューや軽量JPEGで位置合わせを確認します。RAW現像合成は実行パネルから開始します。",
     },
     preview: {
       kicker: "確認",
@@ -62,10 +62,12 @@ export const uploadCopy = {
       title: "プレビュー状態",
       runClientStack: "ブラウザ合成を実行",
       uploadAndStack: "アップロードして合成",
+      runRawStack: "RAW現像して合成",
       previewPayload: "プレビュー容量",
       uploadedSummary: (count: number, bytes: string) =>
         `${count} 件のプレビューファイルをアップロードしました（${bytes}）。`,
       warningsLabel: "位置合わせ警告",
+      rawStackStatus: "RAW合成",
     },
     result: {
       kicker: "出力",
@@ -85,6 +87,7 @@ export const uploadCopy = {
       uploaded: (count: number) => `${count} 件アップロード済み`,
       notUploaded: "未アップロード",
       clientStack: "ブラウザ合成",
+      rawStack: "RAW合成",
     },
     resultRows: {
       resultPng: "結果PNG",
@@ -108,7 +111,6 @@ export const uploadCopy = {
       cr3PreviewExtracted: (bytes: string) => `CR3プレビューを抽出しました（${bytes}）`,
       cr3PreviewUnavailable: (message?: string) =>
         message ? `CR3プレビューを利用できません: ${message}` : "CR3プレビューを利用できません",
-      rawExtractionLater: "RAW埋め込みプレビュー抽出は今後対応予定です",
       browserDecodeUnavailable: "ブラウザでプレビューをデコードできません",
       generatingJpegPreview: "JPEGプレビューを生成中",
       previewReady: "プレビュー準備完了",
@@ -117,6 +119,7 @@ export const uploadCopy = {
       previewUploaded: "プレビューをアップロードしました",
       previewUploadFailed: "プレビューアップロードに失敗しました",
       clientCompositeFailed: "ブラウザ合成に失敗しました",
+      rawCompositeFailed: "RAW合成に失敗しました",
     },
     statuses: {
       queue: {
@@ -143,6 +146,13 @@ export const uploadCopy = {
         completed: "完了",
         failed: "失敗",
       },
+      raw: {
+        idle: "未開始",
+        developing: "RAW現像中",
+        stacking: "RAW合成中",
+        completed: "完了",
+        failed: "失敗",
+      },
     },
   },
   en: {
@@ -152,7 +162,7 @@ export const uploadCopy = {
       eyebrow: "Stella Comp",
       title: "Preview Ingest Workspace",
       description:
-        "Drop RAW or compressed frames, generate lightweight browser previews where possible, and upload preview JPEGs before the full RAW pipeline is introduced.",
+        "Drop RAW or compressed frames, verify alignment with lightweight previews, then run browser RAW development and stacking when needed.",
       statusLabel: "Project status",
       selected: "Selected",
       frames: (count: number) => `${count} frames`,
@@ -180,9 +190,9 @@ export const uploadCopy = {
       jpegQuality: "JPEG quality",
       uploadTarget: "Upload target",
       previewJpegOnly: "Preview JPEG only",
-      fullRawLater: "Full RAW later",
+      fullRawLater: "RAW stack after review",
       note:
-        "RAW files stay queued until embedded preview extraction is added. Browser-readable files can be compressed and uploaded now.",
+        "RAW files are not developed immediately after drop. Review alignment with embedded previews or lightweight JPEGs, then start RAW stacking from the execution panel.",
     },
     preview: {
       kicker: "Review",
@@ -199,10 +209,12 @@ export const uploadCopy = {
       title: "Preview Status",
       runClientStack: "Run Client Stack",
       uploadAndStack: "Upload and Stack",
+      runRawStack: "Develop RAW and Stack",
       previewPayload: "Preview payload",
       uploadedSummary: (count: number, bytes: string) =>
         `Uploaded ${count} preview files (${bytes}).`,
       warningsLabel: "Alignment warnings",
+      rawStackStatus: "RAW stack",
     },
     result: {
       kicker: "Output",
@@ -222,6 +234,7 @@ export const uploadCopy = {
       uploaded: (count: number) => `${count} uploaded`,
       notUploaded: "Not uploaded",
       clientStack: "Client stack",
+      rawStack: "RAW stack",
     },
     resultRows: {
       resultPng: "Result PNG",
@@ -245,7 +258,6 @@ export const uploadCopy = {
       cr3PreviewExtracted: (bytes: string) => `CR3 preview extracted (${bytes})`,
       cr3PreviewUnavailable: (message?: string) =>
         message ? `CR3 preview unavailable: ${message}` : "CR3 preview unavailable",
-      rawExtractionLater: "RAW embedded preview extraction is next",
       browserDecodeUnavailable: "Browser preview decode is unavailable",
       generatingJpegPreview: "Generating JPEG preview",
       previewReady: "Preview ready",
@@ -254,6 +266,7 @@ export const uploadCopy = {
       previewUploaded: "Preview uploaded",
       previewUploadFailed: "Preview upload failed",
       clientCompositeFailed: "Client-side composite failed",
+      rawCompositeFailed: "RAW composite failed",
     },
     statuses: {
       queue: {
@@ -280,6 +293,13 @@ export const uploadCopy = {
         completed: "Completed",
         failed: "Failed",
       },
+      raw: {
+        idle: "Not started",
+        developing: "Developing RAW",
+        stacking: "Stacking RAW",
+        completed: "Completed",
+        failed: "Failed",
+      },
     },
   },
 } as const;
@@ -296,6 +316,10 @@ export function jobStatusText(status: JobSummary["status"], language: Language) 
 
 export function clientCompositeStatusText(status: ClientCompositeStatus, language: Language) {
   return uploadCopy[language].statuses.client[status];
+}
+
+export function rawCompositeStatusText(status: RawCompositeStatus, language: Language) {
+  return uploadCopy[language].statuses.raw[status];
 }
 
 export function queueNoteText(note: QueueNote, language: Language) {
@@ -318,8 +342,6 @@ export function queueNoteText(note: QueueNote, language: Language) {
       return copy.cr3PreviewExtracted(note.bytes);
     case "cr3PreviewUnavailable":
       return copy.cr3PreviewUnavailable(note.detail);
-    case "rawExtractionLater":
-      return copy.rawExtractionLater;
     case "browserDecodeUnavailable":
       return copy.browserDecodeUnavailable;
     case "generatingJpegPreview":

@@ -17,7 +17,6 @@ export type QueueNote =
   | { code: "extractingEmbeddedJpeg" }
   | { code: "cr3PreviewExtracted"; bytes: string }
   | { code: "cr3PreviewUnavailable"; detail?: string }
-  | { code: "rawExtractionLater" }
   | { code: "browserDecodeUnavailable" }
   | { code: "generatingJpegPreview" }
   | { code: "previewReady" }
@@ -46,6 +45,13 @@ export type ClientCompositeStatus =
   | "idle"
   | "uploading"
   | "estimating"
+  | "stacking"
+  | "completed"
+  | "failed";
+
+export type RawCompositeStatus =
+  | "idle"
+  | "developing"
   | "stacking"
   | "completed"
   | "failed";

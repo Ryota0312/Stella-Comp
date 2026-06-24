@@ -109,7 +109,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 
 この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
 
-初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は `libraw-wasm` でブラウザ側現像を試し、現像できた RGB 画像から軽量 JPEG を生成する。CR3 は `libraw-wasm` 現像に失敗した場合のみ、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出してフォールバックする。CR2 など他の RAW は、`libraw-wasm` 現像に失敗した場合は `RAW pending` として扱う。
+初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は D&D 直後には重い現像をせず、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出して preview JPEG 生成に使う。ユーザーが preview 合成結果を確認した後、`libraw-wasm` でブラウザ側現像を実行し、現像できた RGB 画像を元画像合成に使う。埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱う。
 
 注意すべき座標変換:
 

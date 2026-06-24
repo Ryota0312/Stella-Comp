@@ -7,7 +7,6 @@ import {
 } from "../constants";
 import {
   createPreviewJpeg,
-  createPreviewJpegFromRawWithLibRaw,
   extractEmbeddedJpegFromRaw,
 } from "../previewGeneration";
 import type { QueueItem } from "../types";
@@ -68,59 +67,10 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       if (rawExtensions.has(item.extension)) {
         updateItem(item.id, {
           status: "generating",
-          note: { code: "developingRawWithLibRaw" },
+          note: { code: "extractingEmbeddedJpeg" },
         });
 
         try {
-          const preview = await createPreviewJpegFromRawWithLibRaw(
-            item.file,
-            previewMaxEdge,
-            previewJpegQuality,
-          );
-          const previewUrl = URL.createObjectURL(preview.blob);
-          previewUrlsRef.current.add(previewUrl);
-
-          updateItem(item.id, {
-            status: "ready",
-            note: {
-              code: "rawPreviewDeveloped",
-              elapsedMs: preview.elapsedMs,
-              height: preview.sourceHeight,
-              width: preview.sourceWidth,
-            },
-            previewBlob: preview.blob,
-            previewSize: preview.blob.size,
-            previewUrl,
-            width: preview.width,
-            height: preview.height,
-          });
-          return;
-        } catch (error) {
-          if (item.extension !== "cr3") {
-            updateItem(item.id, {
-              status: "raw-pending",
-              note: {
-                code: "rawPreviewUnavailable",
-                detail: error instanceof Error ? error.message : undefined,
-              },
-            });
-            return;
-          }
-
-          updateItem(item.id, {
-            status: "generating",
-            note: {
-              code: "rawPreviewFallbackToEmbeddedJpeg",
-              detail: error instanceof Error ? error.message : undefined,
-            },
-          });
-        }
-
-        try {
-          updateItem(item.id, {
-            status: "generating",
-            note: { code: "extractingEmbeddedJpeg" },
-          });
           const embeddedPreview = await extractEmbeddedJpegFromRaw(item.file);
           const preview = await createPreviewJpeg(
             embeddedPreview.blob,
@@ -143,7 +93,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
           updateItem(item.id, {
             status: "raw-pending",
             note: {
-              code: "cr3PreviewUnavailable",
+              code: item.extension === "cr3" ? "cr3PreviewUnavailable" : "rawPreviewUnavailable",
               detail: error instanceof Error ? error.message : undefined,
             },
           });

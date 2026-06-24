@@ -1,6 +1,11 @@
-import type { ClientCompositeStatus, TimelineItem } from "../types";
+import type { ClientCompositeStatus, RawCompositeStatus, TimelineItem } from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
-import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
+import {
+  clientCompositeStatusText,
+  rawCompositeStatusText,
+  type Language,
+  type UploadCopy,
+} from "../i18n";
 import { formatBytes } from "../utils";
 
 type JobStatusPanelProps = {
@@ -14,7 +19,9 @@ type JobStatusPanelProps = {
   jobError: string | null;
   language: Language;
   previewBytes: number;
+  rawCompositeStatus: RawCompositeStatus;
   runComposite: () => Promise<void>;
+  runRawComposite: () => Promise<void>;
   sourceBytes: number;
   timeline: TimelineItem[];
   uploadError: string | null;
@@ -32,7 +39,9 @@ export function JobStatusPanel({
   jobError,
   language,
   previewBytes,
+  rawCompositeStatus,
   runComposite,
+  runRawComposite,
   sourceBytes,
   timeline,
   uploadError,
@@ -45,14 +54,24 @@ export function JobStatusPanel({
           <p className="panel-kicker">{copy.execution.kicker}</p>
           <h2>{copy.execution.title}</h2>
         </div>
-        <button
-          type="button"
-          className="primary-action"
-          disabled={!canRunJob || isJobBusy}
-          onClick={runComposite}
-        >
-          {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
-        </button>
+        <div className="action-row">
+          <button
+            type="button"
+            className="primary-action"
+            disabled={!canRunJob || isJobBusy}
+            onClick={runComposite}
+          >
+            {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
+          </button>
+          <button
+            type="button"
+            className="secondary-action"
+            disabled={!canRunJob || isJobBusy}
+            onClick={runRawComposite}
+          >
+            {copy.execution.runRawStack}
+          </button>
+        </div>
       </header>
       <div className="timeline">
         {timeline.map((item) => (
@@ -89,6 +108,11 @@ export function JobStatusPanel({
       {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
         <p className="inline-success">
           {clientCompositeStatusText(clientCompositeStatus, language)}
+        </p>
+      ) : null}
+      {rawCompositeStatus !== "idle" && rawCompositeStatus !== "failed" ? (
+        <p className="inline-success">
+          {copy.execution.rawStackStatus}: {rawCompositeStatusText(rawCompositeStatus, language)}
         </p>
       ) : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}

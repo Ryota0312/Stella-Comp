@@ -133,13 +133,13 @@ mise exec -- cargo check
 - `crates/worker` は Protocol Buffers の `ImageProcessor` を実装する Rust gRPC server です。
 - サーバー負荷を抑えるため、RAW 現像や将来の元画像合成は可能な範囲でブラウザ WASM/Canvas/Worker 側へ寄せます。Rust worker は当面、preview JPEG の位置合わせ推定とサーバー合成比較用に使います。
 - RAW/CR3 ファイルはブラウザに D&D できます。
-- RAW はまず `libraw-wasm` でブラウザ側現像を試し、現像できた RGB 画像から preview JPEG を生成します。
-- CR3 は `libraw-wasm` 現像に失敗した場合のみ、既存の Web Worker で埋め込み JPEG 候補を抽出してフォールバックします。
-- CR2 など他の RAW は `libraw-wasm` 現像に失敗した場合、現時点では `RAW pending` として扱います。
+- D&D 直後の RAW は重い現像をせず、まず埋め込み JPEG 候補を抽出して preview JPEG 生成に使います。
+- CR2 など埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
 - 現在の Web UI は、アップロード済み preview JPEG を `/api/preview-alignments` の非同期ジョブ経由で Rust worker に渡し、完了後に返却された変換行列でブラウザ側プレビュー合成を実行します。
+- preview 合成確認後、`RAW現像して合成` で `libraw-wasm` によるブラウザ側 RAW 現像、preview 座標系から元画像座標系への変換行列補正、元画像ベースの加算平均合成を試します。
 - `/api/jobs` はサーバー側 preview JPEG 合成の比較・フォールバック用として残しています。
-- 最終的な RAW 現像、プレビュー座標系から元画像座標系への変換行列補正、元画像ベースの合成は後続で拡張します。
+- RAW 現像結果と埋め込み preview の crop/orientation 差分補正、16bit/linear 合成、メモリ削減は後続で拡張します。
 
 ## ポート競合時
 
