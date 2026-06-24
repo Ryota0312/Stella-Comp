@@ -10,6 +10,10 @@ export type QueueStatus =
 
 export type QueueNote =
   | { code: "queued" }
+  | { code: "developingRawWithLibRaw" }
+  | { code: "rawPreviewDeveloped"; width: number; height: number; elapsedMs: number }
+  | { code: "rawPreviewUnavailable"; detail?: string }
+  | { code: "rawPreviewFallbackToEmbeddedJpeg"; detail?: string }
   | { code: "extractingEmbeddedJpeg" }
   | { code: "cr3PreviewExtracted"; bytes: string }
   | { code: "cr3PreviewUnavailable"; detail?: string }

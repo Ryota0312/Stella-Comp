@@ -25,7 +25,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 
 - Webバックエンド: Go, gin
 - Webフロントエンド: TypeScript, Next.js
-- 星位置合わせ・合成などの画像処理コア: Rust
+- 星位置合わせ・合成などの画像処理コア: TypeScript/ブラウザ WASM/Rust
 - Go/Rust 間の内部 RPC: gRPC, Protocol Buffers
 
 ## 開発方針
@@ -33,13 +33,13 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 仕様は `spec/` 配下に追加・更新する。
 - セットアップ、動作確認、開発サーバー起動手順は `README.md` を参照する。
 - Codex は原則として開発サーバーを起動しない。ユーザーに `README.md` の起動手順を案内する。
-- 重い画像処理は Rust worker 側へ閉じ込め、Web バックエンドはアップロード、ジョブ管理、成果物配信、gRPC client を担当する。
+- 画像処理はサーバー負荷を避けるため、可能な範囲でクライアントサイドへ寄せる。RAW 現像と将来の元画像合成はブラウザ WASM/Canvas/Worker 側で成立するかを優先検証する。Rust worker は位置合わせ推定、比較用サーバー処理、将来の有料/高品質サーバー処理候補として扱う。
 - Go/Rust 間の API 境界は `proto/` 配下の Protocol Buffers 定義を正とする。
 - 大きい画像データは gRPC メッセージ本体に載せず、ローカルパスまたは将来のオブジェクトストレージ URI を渡す。
 - 既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` Rust ライブラリを移植候補として扱う。
 - ローカルに `hoshikasane` の clone があり未コミット変更がある場合は、ユーザー変更として扱い、勝手に巻き戻さない。
-- 実装開始時は、まず最小の縦断スライスを作る。例: 画像アップロード、ジョブ作成、gRPC による Rust worker 呼び出し、結果画像取得。
-- 現在の最小縦断は preview JPEG only。Web UI は `POST /api/preview-alignments` で Rust worker の `EstimateTransforms` を呼ぶ非同期ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` でpreview座標系の2x3アフィン変換行列を受け取り、ブラウザ Canvas でpreview JPEGを加算平均合成する。`POST /api/jobs` は Rust worker の `AlignAndAverage` によるサーバー側preview合成の比較・フォールバック用として残す。
+- 実装開始時は、まず最小の縦断スライスを作る。例: ブラウザでのRAW/preview生成、preview upload、Rust worker による位置合わせ推定、ブラウザ側合成。
+- 現在の最小縦断は preview JPEG only。Web UI は RAW に対してまず `libraw-wasm` によるブラウザ側現像を試し、生成した preview JPEG を `POST /api/preview-uploads` に送る。CR3 は `libraw-wasm` 現像失敗時のみ埋め込み JPEG 抽出へフォールバックする。その後 `POST /api/preview-alignments` で Rust worker の `EstimateTransforms` を呼ぶ非同期ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` でpreview座標系の2x3アフィン変換行列を受け取り、ブラウザ Canvas でpreview JPEGを加算平均合成する。`POST /api/jobs` は Rust worker の `AlignAndAverage` によるサーバー側preview合成の比較・フォールバック用として残す。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。
 - Rust workspace の検証には OpenCV 開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境では `cargo check` が失敗する。

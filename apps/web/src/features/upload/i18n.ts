@@ -95,6 +95,15 @@ export const uploadCopy = {
     },
     queueNotes: {
       queued: "キューに追加済み",
+      developingRawWithLibRaw: "LibRaw WASMでRAWを現像中",
+      rawPreviewDeveloped: (width: number, height: number, elapsedMs: number) =>
+        `RAWをブラウザで現像しました（${width} x ${height}, ${elapsedMs}ms）`,
+      rawPreviewUnavailable: (message?: string) =>
+        message ? `RAW現像に失敗しました: ${message}` : "RAW現像に失敗しました",
+      rawPreviewFallbackToEmbeddedJpeg: (message?: string) =>
+        message
+          ? `RAW現像に失敗したため埋め込みJPEGへ切り替えます: ${message}`
+          : "RAW現像に失敗したため埋め込みJPEGへ切り替えます",
       extractingEmbeddedJpeg: "埋め込みJPEGを抽出中",
       cr3PreviewExtracted: (bytes: string) => `CR3プレビューを抽出しました（${bytes}）`,
       cr3PreviewUnavailable: (message?: string) =>
@@ -223,6 +232,15 @@ export const uploadCopy = {
     },
     queueNotes: {
       queued: "Queued",
+      developingRawWithLibRaw: "Developing RAW with LibRaw WASM",
+      rawPreviewDeveloped: (width: number, height: number, elapsedMs: number) =>
+        `RAW developed in browser (${width} x ${height}, ${elapsedMs}ms)`,
+      rawPreviewUnavailable: (message?: string) =>
+        message ? `RAW develop failed: ${message}` : "RAW develop failed",
+      rawPreviewFallbackToEmbeddedJpeg: (message?: string) =>
+        message
+          ? `RAW develop failed; falling back to embedded JPEG: ${message}`
+          : "RAW develop failed; falling back to embedded JPEG",
       extractingEmbeddedJpeg: "Extracting embedded JPEG",
       cr3PreviewExtracted: (bytes: string) => `CR3 preview extracted (${bytes})`,
       cr3PreviewUnavailable: (message?: string) =>
@@ -286,6 +304,14 @@ export function queueNoteText(note: QueueNote, language: Language) {
   switch (note.code) {
     case "queued":
       return copy.queued;
+    case "developingRawWithLibRaw":
+      return copy.developingRawWithLibRaw;
+    case "rawPreviewDeveloped":
+      return copy.rawPreviewDeveloped(note.width, note.height, note.elapsedMs);
+    case "rawPreviewUnavailable":
+      return copy.rawPreviewUnavailable(note.detail);
+    case "rawPreviewFallbackToEmbeddedJpeg":
+      return copy.rawPreviewFallbackToEmbeddedJpeg(note.detail);
     case "extractingEmbeddedJpeg":
       return copy.extractingEmbeddedJpeg;
     case "cr3PreviewExtracted":

@@ -131,9 +131,11 @@ mise exec -- cargo check
 - `apps/api` は Go + gin の API サーバーです。
 - `crates/stellacomp` は `hoshikasane/stellacomp` から移植した画像処理コアです。
 - `crates/worker` は Protocol Buffers の `ImageProcessor` を実装する Rust gRPC server です。
+- サーバー負荷を抑えるため、RAW 現像や将来の元画像合成は可能な範囲でブラウザ WASM/Canvas/Worker 側へ寄せます。Rust worker は当面、preview JPEG の位置合わせ推定とサーバー合成比較用に使います。
 - RAW/CR3 ファイルはブラウザに D&D できます。
-- CR3 は Web Worker で埋め込み JPEG 候補を抽出し、プレビュー JPEG 生成に使います。
-- CR2 など未対応 RAW は現時点では `RAW pending` として扱います。
+- RAW はまず `libraw-wasm` でブラウザ側現像を試し、現像できた RGB 画像から preview JPEG を生成します。
+- CR3 は `libraw-wasm` 現像に失敗した場合のみ、既存の Web Worker で埋め込み JPEG 候補を抽出してフォールバックします。
+- CR2 など他の RAW は `libraw-wasm` 現像に失敗した場合、現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
 - 現在の Web UI は、アップロード済み preview JPEG を `/api/preview-alignments` の非同期ジョブ経由で Rust worker に渡し、完了後に返却された変換行列でブラウザ側プレビュー合成を実行します。
 - `/api/jobs` はサーバー側 preview JPEG 合成の比較・フォールバック用として残しています。
