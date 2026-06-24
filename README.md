@@ -51,7 +51,28 @@ cd apps/web
 mise exec -- pnpm dev --hostname 127.0.0.1 --port 3001
 ```
 
-IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、`API Dev`、`image proc worker` を使ってください。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。`image proc worker` は Cargo Command として workspace ルートで `cargo run -p worker` を実行します。Go SDK と Rust toolchain は mise で入れたものを IntelliJ 側に設定してください。Rust toolchain location は `cargo`/`rustc` が直接置かれている `bin` ディレクトリ、たとえば `~/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin` を指定します。
+IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、`API Dev`、`image proc worker` を使ってください。Docker Compose でまとめて起動する場合は IntelliJ の Docker Compose Configuration `Compose Up` を使います。`Web Dev` は `apps/web/package.json` の `dev` を、`mise exec -- which pnpm` で確認できる `pnpm` 実体パスで起動する設定にしています。`API Dev` は Go Application として `apps/api/cmd/api` パッケージを起動します。`image proc worker` は Cargo Command として workspace ルートで `cargo run -p worker` を実行します。Go SDK と Rust toolchain は mise で入れたものを IntelliJ 側に設定してください。Rust toolchain location は `cargo`/`rustc` が直接置かれている `bin` ディレクトリ、たとえば `~/.rustup/toolchains/1.96.0-x86_64-unknown-linux-gnu/bin` を指定します。
+
+## Docker Compose での起動
+
+VPS 運用やコンテナイメージ検証用に、nginx、Next.js、Go API、Rust worker、Valkey を Docker Compose で起動できます。
+
+```sh
+docker compose -f compose.yml up --build
+```
+
+起動後は nginx 経由で `http://localhost:8080` にアクセスします。
+
+```text
+http://localhost:8080/      Next.js
+http://localhost:8080/api/  Go API
+```
+
+Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
+
+Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候補として同時に起動します。現時点の API 実装はまだプロセス内メモリでジョブ状態を管理し、goroutine で worker を呼び出します。API の複数 replica 化、再起動耐性、retry、cancel、timeout が必要になる段階で、job store と queue をセットで Valkey に移します。詳細は `spec/deployment.md` を参照してください。
+
+IntelliJ の `Compose Up` で `client version 1.42 is too old` が出る場合は、Run Configuration の Environment variables に `DOCKER_API_VERSION=1.52` を設定してください。Docker CLI が新しくても、IntelliJ の起動環境に古い `DOCKER_API_VERSION` が残っていると Docker daemon への接続時に古い API version が強制されます。
 
 ## エンドポイント方針
 
@@ -62,7 +83,7 @@ http://localhost:3000  Next.js
 http://localhost:8080  Go API
 ```
 
-将来的には docker-compose で nginx, Next.js, Go API, Rust worker を立て、nginx で同一オリジンにまとめます。
+Docker Compose では nginx, Next.js, Go API, Rust worker, Valkey を立て、nginx で同一オリジンにまとめます。
 
 ```text
 /      -> Next.js

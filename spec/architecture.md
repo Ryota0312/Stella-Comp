@@ -88,7 +88,7 @@ stella-comp/
 
 フロントエンドは `NEXT_PUBLIC_API_BASE_URL` で API base URL を切り替える。未指定時は `http://localhost:8080/api` を使う。nginx 経由では `/api` を指定する。
 
-将来の docker-compose 構成では nginx を前段に置き、同一オリジンでルーティングする。
+Docker Compose 構成では nginx を前段に置き、同一オリジンでルーティングする。詳細は `spec/deployment.md` を参照する。
 
 ```text
 /      -> Next.js
@@ -198,6 +198,12 @@ message ImageSize {
 ```
 
 ジョブ管理は当面 Go API 側で担当する。Rust worker は同期的な画像処理 RPC から開始し、必要になった段階で server streaming または worker 内ジョブ API を追加する。
+
+## デプロイとジョブキュー
+
+Docker Compose では `nginx`、`web`、`api`、`worker`、`valkey` を起動する。Go API と Rust worker は同じ `stella-data` volume を `/data` に mount し、API が保存した preview JPEG や server-side result を worker から同じ絶対パスで参照できるようにする。
+
+ジョブキュー基盤は Redis 互換の Valkey を標準候補にする。Redis 互換 ecosystem を使えるため Go API から扱いやすく、単一 VPS の Compose 運用から managed Redis 互換サービスへ移しやすい。MVP の現在実装は Go API プロセス内メモリで `queued` / `running` / `completed` / `failed` を管理しているため、Compose の Valkey は次段階の queue backend として同居させる。API 複数 replica 化、再起動耐性、retry、timeout、cancel を入れる段階では、queue だけでなく polling 用 job state も Valkey へ移す。
 
 ## MVP の実装順
 

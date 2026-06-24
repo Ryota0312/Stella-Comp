@@ -36,6 +36,8 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 画像処理はサーバー負荷を避けるため、可能な範囲でクライアントサイドへ寄せる。RAW 現像と将来の元画像合成はブラウザ WASM/Canvas/Worker 側で成立するかを優先検証する。Rust worker は位置合わせ推定、比較用サーバー処理、将来の有料/高品質サーバー処理候補として扱う。
 - Go/Rust 間の API 境界は `proto/` 配下の Protocol Buffers 定義を正とする。
 - 大きい画像データは gRPC メッセージ本体に載せず、ローカルパスまたは将来のオブジェクトストレージ URI を渡す。
+- Docker Compose では nginx、Next.js、Go API、Rust worker、Valkey を起動する。Compose 環境では API と worker が共有 volume `/data` を同じ絶対パスとして使う。
+- Redis 互換キュー基盤は Valkey を標準候補にする。現時点のジョブ管理は Go API プロセス内メモリだが、API 複数 replica 化、再起動耐性、retry/cancel/timeout を入れる段階で job store と queue を Valkey へ移す。
 - 既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` Rust ライブラリを移植候補として扱う。
 - ローカルに `hoshikasane` の clone があり未コミット変更がある場合は、ユーザー変更として扱い、勝手に巻き戻さない。
 - 実装開始時は、まず最小の縦断スライスを作る。例: ブラウザでのRAW/preview生成、preview upload、Rust worker による位置合わせ推定、ブラウザ側合成。

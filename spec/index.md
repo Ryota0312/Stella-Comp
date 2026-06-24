@@ -45,6 +45,8 @@
 - 星位置合わせ、特徴点検出、アフィン変換、合成は、処理内容に応じて TypeScript、ブラウザ WASM/Worker、Rust worker を使い分ける。
 - Go API と Rust worker の境界は gRPC/Protocol Buffers で定義する。Rust worker は位置合わせ推定、比較用サーバー処理、将来の有料/高品質サーバー処理候補として扱う。
 - ツールバージョンは mise で固定する。
+- Docker Compose では nginx、Next.js、Go API、Rust worker、Valkey を起動する。詳細は `spec/deployment.md` を参照する。
+- Redis 互換キュー基盤は Valkey を標準候補にする。MVP の現在実装はまだ Go API プロセス内メモリのジョブ管理だが、API 複数 replica 化や再起動耐性が必要になる段階で job store と queue を Valkey へ移す。
 
 ## 画像処理方針
 
@@ -147,7 +149,7 @@ Rust 側には preview JPEG の調査用 example として以下を置く。
 ## 主要な未決定事項
 
 - Rust worker のプロセス管理方式: ローカル同居プロセス、Docker Compose、または将来の独立デプロイ
-- ジョブ永続化方式: SQLite から開始するか、最初から PostgreSQL を使うか
+- ジョブ永続化方式: Valkey の Redis 互換データ構造から開始し、監査や履歴が必要になった段階で PostgreSQL などの永続 DB を併用するか
 - 画像保存先: ローカルファイルシステムから開始するか、S3 互換ストレージを前提にするか
 - RAW 現像パラメータの扱い
 - プレビュー画像の生成方式と最大サイズ

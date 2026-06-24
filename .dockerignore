@@ -1,0 +1,15 @@
+.git
+.agents
+.codex
+.idea
+.data
+**/.gocache
+**/.gomodcache
+**/.next
+**/node_modules
+**/target
+**/dist
+**/coverage
+Dockerfile
+docker-compose*.yml
+README.md
