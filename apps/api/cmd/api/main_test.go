@@ -263,9 +263,18 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 
 	router.ServeHTTP(response, request)
 
-	if response.Code != http.StatusOK {
+	if response.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
+	var created alignmentJobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.AlignmentJobID == "" {
+		t.Fatal("expected alignment job id")
+	}
+
+	body := waitForAlignmentJobStatus(t, router, created.AlignmentJobID, "completed")
 	if processor.transformRequest.GetBaseImageIndex() != 1 {
 		t.Fatalf("base image index = %d", processor.transformRequest.GetBaseImageIndex())
 	}
@@ -273,10 +282,6 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 		t.Fatalf("worker images = %d", len(processor.transformRequest.GetImages()))
 	}
 
-	var body estimateTransformsResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
 	if len(body.Transforms) != 2 {
 		t.Fatalf("transforms = %#v", body.Transforms)
 	}
@@ -285,6 +290,40 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	}
 	if len(body.Warnings) != 1 || body.Warnings[0].Code != "TEST_TRANSFORM_WARNING" {
 		t.Fatalf("warnings = %#v", body.Warnings)
+	}
+}
+
+func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dataDir := t.TempDir()
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", "session-1")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sessionDir, "0001-frame.jpg"), []byte("preview"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	router := newRouterWithProcessor(dataDir, &fakeProcessor{err: errors.New("worker unavailable")})
+
+	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var created alignmentJobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+
+	job := waitForAlignmentJobStatus(t, router, created.AlignmentJobID, "failed")
+	if !strings.Contains(job.Error, "worker unavailable") {
+		t.Fatalf("job error = %q", job.Error)
 	}
 }
 
@@ -313,4 +352,31 @@ func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status st
 
 	t.Fatalf("job %s did not reach status %s", jobID, status)
 	return jobResponse{}
+}
+
+func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, status string) alignmentJobResponse {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		request := httptest.NewRequest(http.MethodGet, "/api/preview-alignments/"+jobID, nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("status response = %d, body = %s", response.Code, response.Body.String())
+		}
+
+		var job alignmentJobResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil {
+			t.Fatal(err)
+		}
+		if job.Status == status {
+			return job
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("preview alignment job %s did not reach status %s", jobID, status)
+	return alignmentJobResponse{}
 }

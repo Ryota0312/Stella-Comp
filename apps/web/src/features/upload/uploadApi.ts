@@ -39,6 +39,14 @@ export type PreviewAlignmentSummary = {
   warnings?: ProcessingWarning[];
 };
 
+export type PreviewAlignmentJobSummary = PreviewAlignmentSummary & {
+  alignmentJobId: string;
+  status: JobStatus;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type UploadedPreview = {
   fieldName: string;
   fileName: string;
@@ -82,6 +90,22 @@ export async function estimatePreviewAlignments(
   sessionId: string,
   baseImageIndex: number,
 ): Promise<PreviewAlignmentSummary> {
+  const created = await createPreviewAlignmentJob(sessionId, baseImageIndex);
+  const completed = await waitForPreviewAlignmentJob(created.alignmentJobId);
+
+  return {
+    sessionId: completed.sessionId,
+    baseImageIndex: completed.baseImageIndex,
+    previewPaths: completed.previewPaths,
+    transforms: completed.transforms,
+    warnings: completed.warnings,
+  };
+}
+
+async function createPreviewAlignmentJob(
+  sessionId: string,
+  baseImageIndex: number,
+): Promise<PreviewAlignmentJobSummary> {
   const response = await fetch(`${apiBaseUrl()}/preview-alignments`, {
     method: "POST",
     headers: {
@@ -94,7 +118,39 @@ export async function estimatePreviewAlignments(
     throw new Error(await responseError(response, "Preview alignment failed"));
   }
 
-  return (await response.json()) as PreviewAlignmentSummary;
+  return (await response.json()) as PreviewAlignmentJobSummary;
+}
+
+async function fetchPreviewAlignmentJob(
+  alignmentJobId: string,
+): Promise<PreviewAlignmentJobSummary> {
+  const response = await fetch(`${apiBaseUrl()}/preview-alignments/${alignmentJobId}`);
+
+  if (!response.ok) {
+    throw new Error(await responseError(response, "Preview alignment status fetch failed"));
+  }
+
+  return (await response.json()) as PreviewAlignmentJobSummary;
+}
+
+async function waitForPreviewAlignmentJob(
+  alignmentJobId: string,
+): Promise<PreviewAlignmentJobSummary> {
+  const deadline = Date.now() + 5 * 60 * 1000;
+
+  while (Date.now() < deadline) {
+    const job = await fetchPreviewAlignmentJob(alignmentJobId);
+    if (job.status === "completed") {
+      return job;
+    }
+    if (job.status === "failed") {
+      throw new Error(job.error ?? "Preview alignment failed");
+    }
+
+    await sleep(1000);
+  }
+
+  throw new Error("Preview alignment timed out");
 }
 
 export async function fetchJob(jobId: string): Promise<JobSummary> {
@@ -122,4 +178,8 @@ async function responseError(response: Response, fallback: string) {
   } catch {
     return fallback;
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

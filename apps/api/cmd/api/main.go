@@ -85,12 +85,17 @@ type estimateTransformsRequest struct {
 	BaseImageIndex int      `json:"baseImageIndex"`
 }
 
-type estimateTransformsResponse struct {
+type alignmentJobResponse struct {
+	AlignmentJobID string              `json:"alignmentJobId"`
+	Status         string              `json:"status"`
 	SessionID      string              `json:"sessionId"`
 	BaseImageIndex int                 `json:"baseImageIndex"`
 	PreviewPaths   []string            `json:"previewPaths"`
-	Transforms     []imageTransform    `json:"transforms"`
+	Transforms     []imageTransform    `json:"transforms,omitempty"`
+	Error          string              `json:"error,omitempty"`
 	Warnings       []processingWarning `json:"warnings,omitempty"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	UpdatedAt      time.Time           `json:"updatedAt"`
 }
 
 type imageTransform struct {
@@ -122,6 +127,11 @@ type jobStore struct {
 	jobs map[string]*jobResponse
 }
 
+type alignmentJobStore struct {
+	mu   sync.RWMutex
+	jobs map[string]*alignmentJobResponse
+}
+
 func main() {
 	dataDir := envOrDefault("STELLA_COMP_DATA_DIR", defaultDataDir)
 	workerAddress := envOrDefault("STELLA_COMP_WORKER_ADDR", defaultWorkerAddress)
@@ -147,6 +157,7 @@ func newRouterWithProcessor(dataDir string, imageProcessor processor) *gin.Engin
 	router.MaxMultipartMemory = defaultMaxMultipartMemory
 	router.Use(corsForLocalDevelopment())
 	jobs := &jobStore{jobs: map[string]*jobResponse{}}
+	alignmentJobs := &alignmentJobStore{jobs: map[string]*alignmentJobResponse{}}
 
 	router.GET("/api/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -277,39 +288,32 @@ func newRouterWithProcessor(dataDir string, imageProcessor processor) *gin.Engin
 		}
 
 		images := previewInputImages(previewPaths)
-		response, err := imageProcessor.EstimateTransforms(c.Request.Context(), &stellacompv1.EstimateTransformsRequest{
-			Images:         images,
-			BaseImageIndex: int32(request.BaseImageIndex),
-		})
-		if err != nil {
-			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-			return
-		}
-
-		transforms := make([]imageTransform, 0, len(response.GetTransforms()))
-		for _, transform := range response.GetTransforms() {
-			transforms = append(transforms, imageTransform{
-				ImageIndex: transform.GetImageIndex(),
-				Affine:     transform.GetAffine(),
-				Estimated:  transform.GetEstimated(),
-			})
-		}
-
-		warnings := make([]processingWarning, 0, len(response.GetWarnings()))
-		for _, warning := range response.GetWarnings() {
-			warnings = append(warnings, processingWarning{
-				Code:    warning.GetCode(),
-				Message: warning.GetMessage(),
-			})
-		}
-
-		c.JSON(http.StatusOK, estimateTransformsResponse{
+		alignmentJobID := newID()
+		now := time.Now().UTC()
+		alignmentJob := &alignmentJobResponse{
+			AlignmentJobID: alignmentJobID,
+			Status:         "queued",
 			SessionID:      sessionID,
 			BaseImageIndex: request.BaseImageIndex,
 			PreviewPaths:   previewPaths,
-			Transforms:     transforms,
-			Warnings:       warnings,
-		})
+			CreatedAt:      now,
+			UpdatedAt:      now,
+		}
+		alignmentJobs.put(alignmentJob)
+
+		go runAlignmentJob(context.Background(), alignmentJobs, alignmentJobID, imageProcessor, images, request.BaseImageIndex)
+
+		c.JSON(http.StatusAccepted, alignmentJob)
+	})
+
+	router.GET("/api/preview-alignments/:alignmentJobID", func(c *gin.Context) {
+		alignmentJob, ok := alignmentJobs.get(c.Param("alignmentJobID"))
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "preview alignment job not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, alignmentJob)
 	})
 
 	router.GET("/api/jobs/:jobID", func(c *gin.Context) {
@@ -486,6 +490,58 @@ func runJob(ctx context.Context, jobs *jobStore, jobID string, imageProcessor pr
 	})
 }
 
+func runAlignmentJob(ctx context.Context, jobs *alignmentJobStore, jobID string, imageProcessor processor, images []*stellacompv1.InputImage, baseImageIndex int) {
+	jobs.update(jobID, func(job *alignmentJobResponse) {
+		job.Status = "running"
+		job.UpdatedAt = time.Now().UTC()
+	})
+
+	response, err := imageProcessor.EstimateTransforms(ctx, &stellacompv1.EstimateTransformsRequest{
+		Images:         images,
+		BaseImageIndex: int32(baseImageIndex),
+	})
+	if err != nil {
+		jobs.update(jobID, func(job *alignmentJobResponse) {
+			job.Status = "failed"
+			job.Error = err.Error()
+			job.UpdatedAt = time.Now().UTC()
+		})
+		return
+	}
+
+	jobs.update(jobID, func(job *alignmentJobResponse) {
+		job.Status = "completed"
+		job.Transforms = imageTransformsFromProto(response.GetTransforms())
+		job.Warnings = processingWarningsFromProto(response.GetWarnings())
+		job.UpdatedAt = time.Now().UTC()
+	})
+}
+
+func imageTransformsFromProto(protoTransforms []*stellacompv1.ImageTransform) []imageTransform {
+	transforms := make([]imageTransform, 0, len(protoTransforms))
+	for _, transform := range protoTransforms {
+		transforms = append(transforms, imageTransform{
+			ImageIndex: transform.GetImageIndex(),
+			Affine:     append([]float64(nil), transform.GetAffine()...),
+			Estimated:  transform.GetEstimated(),
+		})
+	}
+
+	return transforms
+}
+
+func processingWarningsFromProto(protoWarnings []*stellacompv1.ProcessingWarning) []processingWarning {
+	warnings := make([]processingWarning, 0, len(protoWarnings))
+	for _, warning := range protoWarnings {
+		warnings = append(warnings, processingWarning{
+			Code:    warning.GetCode(),
+			Message: warning.GetMessage(),
+		})
+	}
+
+	return warnings
+}
+
 func previewInputImages(previewPaths []string) []*stellacompv1.InputImage {
 	images := make([]*stellacompv1.InputImage, 0, len(previewPaths))
 	for _, previewPath := range previewPaths {
@@ -526,9 +582,48 @@ func (store *jobStore) update(jobID string, update func(job *jobResponse)) {
 	update(job)
 }
 
+func (store *alignmentJobStore) put(job *alignmentJobResponse) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.jobs[job.AlignmentJobID] = cloneAlignmentJob(job)
+}
+
+func (store *alignmentJobStore) get(jobID string) (*alignmentJobResponse, bool) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	job, ok := store.jobs[jobID]
+	if !ok {
+		return nil, false
+	}
+
+	return cloneAlignmentJob(job), true
+}
+
+func (store *alignmentJobStore) update(jobID string, update func(job *alignmentJobResponse)) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	job, ok := store.jobs[jobID]
+	if !ok {
+		return
+	}
+
+	update(job)
+}
+
 func cloneJob(job *jobResponse) *jobResponse {
 	cloned := *job
 	cloned.PreviewPaths = append([]string(nil), job.PreviewPaths...)
+	cloned.Warnings = append([]processingWarning(nil), job.Warnings...)
+	return &cloned
+}
+
+func cloneAlignmentJob(job *alignmentJobResponse) *alignmentJobResponse {
+	cloned := *job
+	cloned.PreviewPaths = append([]string(nil), job.PreviewPaths...)
+	cloned.Transforms = append([]imageTransform(nil), job.Transforms...)
+	for index := range cloned.Transforms {
+		cloned.Transforms[index].Affine = append([]float64(nil), job.Transforms[index].Affine...)
+	}
 	cloned.Warnings = append([]processingWarning(nil), job.Warnings...)
 	return &cloned
 }
