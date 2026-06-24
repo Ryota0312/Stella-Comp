@@ -8,6 +8,7 @@ type StackSourceOptions = {
   itemIds: string[];
   transforms: ImageTransform[];
   baseImageIndex: number;
+  onProgress?: (progress: { current: number; total: number; label: string }) => void;
 };
 
 type LoadedSourceImage = {
@@ -20,6 +21,7 @@ type LoadedSourceImage = {
 export async function stackSourceImages({
   items,
   itemIds,
+  onProgress,
   transforms,
   baseImageIndex,
 }: StackSourceOptions): Promise<Blob> {
@@ -33,7 +35,16 @@ export async function stackSourceImages({
     throw new Error("Base image index is out of range");
   }
 
+  const totalProgress = orderedItems.length * 2 + 2;
+  let completedProgress = 0;
+  const reportProgress = (label: string) => {
+    onProgress?.({ current: completedProgress, total: totalProgress, label });
+  };
+
+  reportProgress(orderedItems[baseImageIndex].name);
   const baseSource = await loadSourceImage(orderedItems[baseImageIndex]);
+  completedProgress += 1;
+  reportProgress(orderedItems[baseImageIndex].name);
   const basePreviewSize = previewSize(orderedItems[baseImageIndex]);
   const width = baseSource.width;
   const height = baseSource.height;
@@ -55,7 +66,10 @@ export async function stackSourceImages({
   const transformsByIndex = new Map(transforms.map((transform) => [transform.imageIndex, transform]));
 
   for (const [index, item] of orderedItems.entries()) {
+    reportProgress(item.name);
     const source = await loadSourceImage(item);
+    completedProgress += 1;
+    reportProgress(item.name);
     const targetPreviewSize = previewSize(item);
     const transform = transformsByIndex.get(index);
     const affine = transform?.affine.length === 6 ? transform.affine : identityAffine();
@@ -96,8 +110,11 @@ export async function stackSourceImages({
       blue[pixel] += data[offset + 2];
       counts[pixel] += 1;
     }
+    completedProgress += 1;
+    reportProgress(item.name);
   }
 
+  reportProgress("PNG");
   const output = sampleContext.createImageData(width, height);
   for (let pixel = 0, offset = 0; pixel < pixelCount; pixel += 1, offset += 4) {
     const count = counts[pixel];
@@ -121,6 +138,8 @@ export async function stackSourceImages({
     throw new Error("RAW composite PNG export failed");
   }
 
+  completedProgress += 1;
+  reportProgress("PNG");
   return blob;
 }
 

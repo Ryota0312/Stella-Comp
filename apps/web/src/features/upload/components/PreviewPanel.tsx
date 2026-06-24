@@ -5,16 +5,9 @@ import { formatBytes } from "../utils";
 type PreviewPanelProps = {
   activeItem?: QueueItem;
   copy: UploadCopy;
-  uploadableCount: number;
-  uploadPreviews: () => Promise<unknown>;
 };
 
-export function PreviewPanel({
-  activeItem,
-  copy,
-  uploadableCount,
-  uploadPreviews,
-}: PreviewPanelProps) {
+export function PreviewPanel({ activeItem, copy }: PreviewPanelProps) {
   return (
     <section className="panel panel-preview">
       <header className="panel-header">
@@ -22,14 +15,6 @@ export function PreviewPanel({
           <p className="panel-kicker">{copy.preview.kicker}</p>
           <h2>{copy.preview.title}</h2>
         </div>
-        <button
-          type="button"
-          className="secondary-action"
-          disabled={!uploadableCount}
-          onClick={uploadPreviews}
-        >
-          {copy.preview.uploadPreviews}
-        </button>
       </header>
       <div className="preview-stage">
         {activeItem?.previewUrl ? (

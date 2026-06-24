@@ -19,8 +19,9 @@ export function usePreviewUpload({ copy, items, setItems }: UsePreviewUploadOpti
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const uploadableItems = useMemo(
-    () => items.filter((item) => item.previewBlob && item.status !== "uploaded"),
-    [items],
+    () =>
+      items.filter((item) => item.previewBlob && (!uploadSummary || item.status !== "uploaded")),
+    [items, uploadSummary],
   );
   const uploadableCount = uploadableItems.length;
 

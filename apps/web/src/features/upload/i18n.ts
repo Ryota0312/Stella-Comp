@@ -60,10 +60,11 @@ export const uploadCopy = {
     execution: {
       kicker: "実行",
       title: "プレビュー状態",
-      runClientStack: "ブラウザ合成を実行",
-      uploadAndStack: "アップロードして合成",
+      runClientStack: "プレビュー合成を再実行",
+      uploadAndStack: "プレビュー合成を実行",
       runRawStack: "RAW現像して合成",
       previewPayload: "プレビュー容量",
+      rawProgressLabel: "本画像処理の進捗",
       uploadedSummary: (count: number, bytes: string) =>
         `${count} 件のプレビューファイルをアップロードしました（${bytes}）。`,
       warningsLabel: "位置合わせ警告",
@@ -207,10 +208,11 @@ export const uploadCopy = {
     execution: {
       kicker: "Execution",
       title: "Preview Status",
-      runClientStack: "Run Client Stack",
-      uploadAndStack: "Upload and Stack",
+      runClientStack: "Rerun Preview Stack",
+      uploadAndStack: "Run Preview Stack",
       runRawStack: "Develop RAW and Stack",
       previewPayload: "Preview payload",
+      rawProgressLabel: "Source image progress",
       uploadedSummary: (count: number, bytes: string) =>
         `Uploaded ${count} preview files (${bytes}).`,
       warningsLabel: "Alignment warnings",

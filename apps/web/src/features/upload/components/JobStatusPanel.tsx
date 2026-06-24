@@ -1,4 +1,9 @@
-import type { ClientCompositeStatus, RawCompositeStatus, TimelineItem } from "../types";
+import type {
+  ClientCompositeStatus,
+  CompositeProgress,
+  RawCompositeStatus,
+  TimelineItem,
+} from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
 import {
   clientCompositeStatusText,
@@ -19,6 +24,7 @@ type JobStatusPanelProps = {
   jobError: string | null;
   language: Language;
   previewBytes: number;
+  rawCompositeProgress: CompositeProgress | null;
   rawCompositeStatus: RawCompositeStatus;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
@@ -39,6 +45,7 @@ export function JobStatusPanel({
   jobError,
   language,
   previewBytes,
+  rawCompositeProgress,
   rawCompositeStatus,
   runComposite,
   runRawComposite,
@@ -114,6 +121,37 @@ export function JobStatusPanel({
         <p className="inline-success">
           {copy.execution.rawStackStatus}: {rawCompositeStatusText(rawCompositeStatus, language)}
         </p>
+      ) : null}
+      {rawCompositeProgress ? (
+        <div
+          className="progress-block"
+          role="progressbar"
+          aria-label={copy.execution.rawProgressLabel}
+          aria-valuemin={0}
+          aria-valuemax={rawCompositeProgress.total}
+          aria-valuenow={rawCompositeProgress.current}
+        >
+          <div className="progress-header">
+            <span>{copy.execution.rawProgressLabel}</span>
+            <strong>
+              {rawCompositeProgress.current} / {rawCompositeProgress.total}
+            </strong>
+          </div>
+          <div className="progress-bar" aria-hidden="true">
+            <div
+              className="progress-value"
+              style={{
+                width: `${Math.min(
+                  (rawCompositeProgress.current / rawCompositeProgress.total) * 100,
+                  100,
+                )}%`,
+              }}
+            />
+          </div>
+          <p className="progress-detail">
+            {rawCompositeStatusText(rawCompositeStatus, language)}: {rawCompositeProgress.label}
+          </p>
+        </div>
       ) : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
       {clientWarnings.length ? (

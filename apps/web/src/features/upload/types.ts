@@ -56,6 +56,12 @@ export type RawCompositeStatus =
   | "completed"
   | "failed";
 
+export type CompositeProgress = {
+  current: number;
+  total: number;
+  label: string;
+};
+
 export type TimelineItem = {
   label: string;
   value: string;

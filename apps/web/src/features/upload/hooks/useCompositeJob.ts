@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { stackPreviewImages } from "../clientStacking";
 import type { UploadCopy } from "../i18n";
 import { stackSourceImages } from "../rawStacking";
-import type { ClientCompositeStatus, QueueItem, RawCompositeStatus } from "../types";
+import type {
+  ClientCompositeStatus,
+  CompositeProgress,
+  QueueItem,
+  RawCompositeStatus,
+} from "../types";
 import {
   estimatePreviewAlignments,
   type ImageTransform,
@@ -37,6 +42,7 @@ export function useCompositeJob({
     useState<ClientCompositeStatus>("idle");
   const [rawCompositeStatus, setRawCompositeStatus] = useState<RawCompositeStatus>("idle");
   const [clientWarnings, setClientWarnings] = useState<ProcessingWarning[]>([]);
+  const [rawCompositeProgress, setRawCompositeProgress] = useState<CompositeProgress | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [lastAlignment, setLastAlignment] = useState<PreviewAlignmentSummary | null>(null);
   const resultUrlRef = useRef<string | null>(null);
@@ -56,6 +62,7 @@ export function useCompositeJob({
       setClientCompositeStatus("idle");
       setRawCompositeStatus("idle");
     }
+    setRawCompositeProgress(null);
     setClientWarnings([]);
     setLastAlignment(null);
     if (resultUrlRef.current) {
@@ -152,6 +159,7 @@ export function useCompositeJob({
     setJobError(null);
     setJob(null);
     setRawCompositeStatus(uploadSummary || lastAlignment ? "developing" : "stacking");
+    setRawCompositeProgress(null);
 
     try {
       const summary = uploadSummary ?? (await uploadPreviews());
@@ -175,14 +183,17 @@ export function useCompositeJob({
       const resultBlob = await stackSourceImages({
         items,
         itemIds: uploadedItemIdsRef.current,
+        onProgress: setRawCompositeProgress,
         transforms,
         baseImageIndex,
       });
 
       publishResult(resultBlob);
       setRawCompositeStatus("completed");
+      setRawCompositeProgress(null);
     } catch (error) {
       setRawCompositeStatus("failed");
+      setRawCompositeProgress(null);
       setJobError(error instanceof Error ? error.message : copy.queueNotes.rawCompositeFailed);
     }
   }, [
@@ -206,6 +217,7 @@ export function useCompositeJob({
     isJobBusy,
     job,
     jobError,
+    rawCompositeProgress,
     rawCompositeStatus,
     resultUrl,
     runComposite,

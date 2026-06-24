@@ -34,6 +34,7 @@ export function UploadWorkspace() {
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
   const clearJobStateRef = useRef<(preserveStarting?: boolean) => void>(() => undefined);
+  const autoCompositeKeyRef = useRef<string | null>(null);
   const copy = uploadCopy[language];
 
   useEffect(() => {
@@ -92,6 +93,7 @@ export function UploadWorkspace() {
     isJobBusy,
     job,
     jobError,
+    rawCompositeProgress,
     rawCompositeStatus,
     resultUrl,
     runComposite,
@@ -107,6 +109,31 @@ export function UploadWorkspace() {
   });
 
   clearJobStateRef.current = clearJobState;
+
+  const autoCompositeKey = useMemo(() => {
+    const previewReadyItems = items.filter((item) => item.previewBlob);
+    const isQueueSettled =
+      items.length > 0 &&
+      items.every(
+        (item) =>
+          item.status !== "queued" && item.status !== "generating" && item.status !== "uploading",
+      );
+
+    if (!isQueueSettled || previewReadyItems.length === 0 || !canRunJob) {
+      return null;
+    }
+
+    return previewReadyItems.map((item) => `${item.id}:${item.previewSize ?? 0}`).join("|");
+  }, [canRunJob, items]);
+
+  useEffect(() => {
+    if (!autoCompositeKey || autoCompositeKeyRef.current === autoCompositeKey || isJobBusy) {
+      return;
+    }
+
+    autoCompositeKeyRef.current = autoCompositeKey;
+    void runComposite();
+  }, [autoCompositeKey, isJobBusy, runComposite]);
 
   const jobTimeline = useMemo<TimelineItem[]>(
     () => [
@@ -224,8 +251,6 @@ export function UploadWorkspace() {
         <PreviewPanel
           activeItem={activeItem}
           copy={copy}
-          uploadableCount={uploadableCount}
-          uploadPreviews={uploadPreviewsAndClearJob}
         />
 
         <JobStatusPanel
@@ -239,6 +264,7 @@ export function UploadWorkspace() {
           jobError={jobError}
           language={language}
           previewBytes={previewBytes}
+          rawCompositeProgress={rawCompositeProgress}
           rawCompositeStatus={rawCompositeStatus}
           runComposite={runComposite}
           runRawComposite={runRawComposite}

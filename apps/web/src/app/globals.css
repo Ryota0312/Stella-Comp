@@ -512,6 +512,13 @@ button {
   background: linear-gradient(90deg, #31d4c5, #8ff8f0);
 }
 
+.progress-detail {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
 .timeline-muted {
   color: var(--muted);
 }
