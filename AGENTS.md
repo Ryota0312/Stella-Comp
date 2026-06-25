@@ -45,4 +45,4 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 現在の最小縦断は preview JPEG first。Web UI は RAW の D&D 直後には重い RAW 現像をせず、埋め込み JPEG またはブラウザで軽量生成した preview JPEG を `POST /api/preview-uploads` に送る。その後 `POST /api/preview-alignments` で Rust worker の `EstimateTransforms` を呼ぶ非同期ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` でpreview座標系の2x3アフィン変換行列を受け取り、ブラウザ Canvas でpreview JPEGを加算平均合成する。この preview upload/preview 合成は D&D 後に自動実行してよい。ユーザーが preview 結果を確認してから、明示操作で `libraw-wasm` による RAW 現像と元画像合成を実行する。RAW 現像と元画像合成中は進捗を表示する。`POST /api/jobs` は Rust worker の `AlignAndAverage` によるサーバー側preview合成の比較・フォールバック用として残す。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。
-- Rust workspace の検証には OpenCV 開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境では `cargo check` が失敗する。
+- Rust workspace の検証には OpenCV と libclang/LLVM の開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境、または `llvm-config` / libclang がない環境では `cargo check` が失敗する。

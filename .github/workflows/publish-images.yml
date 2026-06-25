@@ -32,7 +32,7 @@ jobs:
       - name: Install OpenCV and protobuf tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libopencv-dev pkg-config protobuf-compiler
+          sudo apt-get install -y --no-install-recommends clang cmake libclang-dev llvm-dev libopencv-dev pkg-config protobuf-compiler
 
       - name: Install web dependencies
         working-directory: apps/web

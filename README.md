@@ -6,7 +6,7 @@
 
 このリポジトリではツールバージョンを mise で管理します。JavaScript / pnpm 関連の管理ファイルは `apps/web` 配下に寄せています。
 
-Rust の画像処理コアは OpenCV に依存します。Rust workspace をチェックまたは worker を起動する前に、`pkg-config` から `opencv4` を検出できるようにしてください。
+Rust の画像処理コアは OpenCV と libclang/LLVM に依存します。Rust workspace をチェックまたは worker を起動する前に、`pkg-config` から `opencv4` を検出でき、`llvm-config` / libclang を使えるようにしてください。
 
 ```sh
 mise install
