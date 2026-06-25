@@ -130,6 +130,8 @@ GHCR_USERNAME                  private package を pull する場合のみ
 GHCR_TOKEN                     private package を pull する場合のみ。read packages 権限が必要
 ```
 
+GitHub Secrets の `STELLA_COMP_HTTPS_DOMAINS` にはシェル用の引用符を含めず、`example.com -> http://nginx:80` の形式で保存します。`example.com` だけを指定した場合や、値に引用符が含まれる場合、HTTPS Portal は nginx への proxy ではなく静的サイトとして扱い、`Welcome to HTTPS-PORTAL!` の既定ページを返すことがあります。
+
 VPS 側には Docker Engine と Docker Compose plugin が必要です。また、`DEPLOY_USER` は passwordless sudo なしで `docker` / `docker compose` を実行できる必要があります。一般的には VPS 上で `sudo usermod -aG docker <DEPLOY_USER>` を実行し、いったん SSH セッションを切断して再ログインしてから `docker ps` が通ることを確認します。
 
 Deploy workflow は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。`permission denied while trying to connect to the Docker daemon socket` が出る場合は、GHCR 認証ではなく `DEPLOY_USER` の Docker socket 権限が不足しています。

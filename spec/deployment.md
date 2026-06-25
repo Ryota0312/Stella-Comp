@@ -127,6 +127,7 @@ GitHub Secrets は以下を使う。
   - deploy user で SSH 接続するための秘密鍵。
 - `STELLA_COMP_HTTPS_DOMAINS`
   - HTTPS Portal の `DOMAINS`。例: `example.com -> http://nginx:80`。
+  - GitHub Secrets には引用符を含めず、この形式の値そのものを保存する。ドメイン名だけを指定すると HTTPS Portal は静的サイトとして扱い、既定の Welcome ページを返すことがある。
 - `STELLA_COMP_HTTPS_STAGE`
   - HTTPS Portal の stage。未設定時は `production`。証明書検証前は `staging` を使う。
 - `GHCR_USERNAME`
