@@ -2,120 +2,25 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "GHCR image tag to deploy"
+        required: true
+        default: "latest"
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  validate:
-    name: Validate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install mise
-        uses: jdx/mise-action@v2
-
-      - name: Install OpenCV and protobuf tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libopencv-dev pkg-config protobuf-compiler
-
-      - name: Install web dependencies
-        working-directory: apps/web
-        run: mise exec -- pnpm install --frozen-lockfile
-
-      - name: Typecheck web
-        working-directory: apps/web
-        run: mise exec -- pnpm typecheck
-
-      - name: Build web
-        working-directory: apps/web
-        run: mise exec -- pnpm build
-
-      - name: Test API
-        working-directory: apps/api
-        run: GOCACHE="$PWD/.gocache" GOMODCACHE="$PWD/.gomodcache" mise exec -- go test ./...
-
-      - name: Check Rust workspace
-        run: mise exec -- cargo check
-
-  publish-images:
-    name: Publish Images
-    needs: validate
-    runs-on: ubuntu-latest
-    outputs:
-      web-image: ${{ steps.images.outputs.web }}
-      api-image: ${{ steps.images.outputs.api }}
-      worker-image: ${{ steps.images.outputs.worker }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve image names
-        id: images
-        run: |
-          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
-          repo="$(printf '%s' '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
-          base="${{ env.REGISTRY }}/${owner}/${repo}"
-          echo "web=${base}/web:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "api=${base}/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "worker=${base}/worker:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "web_latest=${base}/web:latest" >> "$GITHUB_OUTPUT"
-          echo "api_latest=${base}/api:latest" >> "$GITHUB_OUTPUT"
-          echo "worker_latest=${base}/worker:latest" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.images.outputs.web }}
-            ${{ steps.images.outputs.web_latest }}
-          build-args: |
-            NEXT_PUBLIC_API_BASE_URL=/api
-
-      - name: Build and push API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.images.outputs.api }}
-            ${{ steps.images.outputs.api_latest }}
-
-      - name: Build and push worker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: crates/worker/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.images.outputs.worker }}
-            ${{ steps.images.outputs.worker_latest }}
-
   deploy:
     name: Deploy to VPS
-    needs: publish-images
     runs-on: ubuntu-latest
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -131,13 +36,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Skip when deploy secrets are not configured
-        if: env.DEPLOY_HOST == '' || env.DEPLOY_USER == '' || env.DEPLOY_PATH == '' || env.DEPLOY_SSH_KEY == '' || env.STELLA_COMP_HTTPS_DOMAINS == ''
+      - name: Resolve image names
+        id: images
         run: |
-          echo "Deploy secrets are not fully configured. Images were published, remote deploy was skipped."
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          repo="$(printf '%s' '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
+          base="${{ env.REGISTRY }}/${owner}/${repo}"
+          tag="${{ inputs.image_tag }}"
+          echo "web=${base}/web:${tag}" >> "$GITHUB_OUTPUT"
+          echo "api=${base}/api:${tag}" >> "$GITHUB_OUTPUT"
+          echo "worker=${base}/worker:${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Check deploy secrets
+        run: |
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY STELLA_COMP_HTTPS_DOMAINS; do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} is not configured."
+              missing=1
+            fi
+          done
+          exit "$missing"
 
       - name: Prepare SSH
-        if: env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && env.DEPLOY_PATH != '' && env.DEPLOY_SSH_KEY != '' && env.STELLA_COMP_HTTPS_DOMAINS != ''
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
@@ -146,14 +67,12 @@ jobs:
           ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload deploy files
-        if: env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && env.DEPLOY_PATH != '' && env.DEPLOY_SSH_KEY != '' && env.STELLA_COMP_HTTPS_DOMAINS != ''
         run: |
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/deploy'"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" compose.deploy.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/compose.deploy.yml"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" deploy/nginx.conf "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/nginx.conf"
 
       - name: Pull images and restart compose
-        if: env.DEPLOY_HOST != '' && env.DEPLOY_USER != '' && env.DEPLOY_PATH != '' && env.DEPLOY_SSH_KEY != '' && env.STELLA_COMP_HTTPS_DOMAINS != ''
         run: |
           stage="${STELLA_COMP_HTTPS_STAGE:-production}"
           if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
@@ -162,15 +81,15 @@ jobs:
           fi
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "cd '${DEPLOY_PATH}' && \
-             STELLA_COMP_WEB_IMAGE='${{ needs.publish-images.outputs.web-image }}' \
-             STELLA_COMP_API_IMAGE='${{ needs.publish-images.outputs.api-image }}' \
-             STELLA_COMP_WORKER_IMAGE='${{ needs.publish-images.outputs.worker-image }}' \
+             STELLA_COMP_WEB_IMAGE='${{ steps.images.outputs.web }}' \
+             STELLA_COMP_API_IMAGE='${{ steps.images.outputs.api }}' \
+             STELLA_COMP_WORKER_IMAGE='${{ steps.images.outputs.worker }}' \
              STELLA_COMP_HTTPS_DOMAINS='${STELLA_COMP_HTTPS_DOMAINS}' \
              STELLA_COMP_HTTPS_STAGE='${stage}' \
              docker compose -f compose.deploy.yml pull && \
-             STELLA_COMP_WEB_IMAGE='${{ needs.publish-images.outputs.web-image }}' \
-             STELLA_COMP_API_IMAGE='${{ needs.publish-images.outputs.api-image }}' \
-             STELLA_COMP_WORKER_IMAGE='${{ needs.publish-images.outputs.worker-image }}' \
+             STELLA_COMP_WEB_IMAGE='${{ steps.images.outputs.web }}' \
+             STELLA_COMP_API_IMAGE='${{ steps.images.outputs.api }}' \
+             STELLA_COMP_WORKER_IMAGE='${{ steps.images.outputs.worker }}' \
              STELLA_COMP_HTTPS_DOMAINS='${STELLA_COMP_HTTPS_DOMAINS}' \
              STELLA_COMP_HTTPS_STAGE='${stage}' \
              docker compose -f compose.deploy.yml up -d --remove-orphans"

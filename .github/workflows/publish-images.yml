@@ -1,0 +1,118 @@
+name: Publish Images
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-images-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
+      - name: Install OpenCV and protobuf tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libopencv-dev pkg-config protobuf-compiler
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: mise exec -- pnpm install --frozen-lockfile
+
+      - name: Typecheck web
+        working-directory: apps/web
+        run: mise exec -- pnpm typecheck
+
+      - name: Build web
+        working-directory: apps/web
+        run: mise exec -- pnpm build
+
+      - name: Test API
+        working-directory: apps/api
+        run: GOCACHE="$PWD/.gocache" GOMODCACHE="$PWD/.gomodcache" mise exec -- go test ./...
+
+      - name: Check Rust workspace
+        run: mise exec -- cargo check
+
+  publish-images:
+    name: Publish Images
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      web-image: ${{ steps.images.outputs.web }}
+      api-image: ${{ steps.images.outputs.api }}
+      worker-image: ${{ steps.images.outputs.worker }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image names
+        id: images
+        run: |
+          owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          repo="$(printf '%s' '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
+          base="${{ env.REGISTRY }}/${owner}/${repo}"
+          echo "web=${base}/web:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "api=${base}/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "worker=${base}/worker:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "web_latest=${base}/web:latest" >> "$GITHUB_OUTPUT"
+          echo "api_latest=${base}/api:latest" >> "$GITHUB_OUTPUT"
+          echo "worker_latest=${base}/worker:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.images.outputs.web }}
+            ${{ steps.images.outputs.web_latest }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=/api
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.images.outputs.api }}
+            ${{ steps.images.outputs.api_latest }}
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: crates/worker/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.images.outputs.worker }}
+            ${{ steps.images.outputs.worker_latest }}

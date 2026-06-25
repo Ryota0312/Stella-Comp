@@ -97,11 +97,22 @@ DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
 
 Let's Encrypt の HTTP-01 challenge を通すため、本番証明書の取得時は対象ドメインの 80 番ポートがインターネットから到達可能である必要があります。
 
-## GitHub Actions でのデプロイ
+## GitHub Actions でのイメージ公開とデプロイ
 
-VPS 接続先が未定の間、`.github/workflows/deploy.yml` は `workflow_dispatch` による手動実行のみ有効にしています。VPS 準備後は `main` / `master` ブランチへの `push` trigger を workflow に戻すことで、コミット追加や Pull Request merge のたびに検証、Docker image build、GHCR への push、VPS deploy を実行できます。Pull Request の merge は base branch への push として検知します。
+`main` または `master` ブランチに push されると、`.github/workflows/publish-images.yml` が検証、Docker image build、GHCR への push を実行します。Pull Request の merge も base branch への push として検知します。
 
-VPS 接続先が未設定のまま手動実行した場合は、remote deploy は skip されます。VPS 契約後、Repository secrets に以下を設定してください。
+image は GitHub Container Registry の以下に公開します。owner と repo は GitHub Actions 内で小文字化します。
+
+```text
+ghcr.io/<owner>/<repo>/web:<commit-sha>
+ghcr.io/<owner>/<repo>/api:<commit-sha>
+ghcr.io/<owner>/<repo>/worker:<commit-sha>
+ghcr.io/<owner>/<repo>/web:latest
+ghcr.io/<owner>/<repo>/api:latest
+ghcr.io/<owner>/<repo>/worker:latest
+```
+
+VPS への反映は `.github/workflows/deploy.yml` の `workflow_dispatch` から手動実行します。標準では `latest` tag をデプロイし、必要に応じて commit SHA tag を指定できます。VPS 契約後、Repository secrets に以下を設定してください。
 
 ```text
 DEPLOY_HOST                    VPS の host name または IP
@@ -115,7 +126,7 @@ GHCR_USERNAME                  private package を pull する場合のみ
 GHCR_TOKEN                     private package を pull する場合のみ。read packages 権限が必要
 ```
 
-VPS 側には Docker Engine と Docker Compose plugin が必要です。Actions は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。
+VPS 側には Docker Engine と Docker Compose plugin が必要です。Deploy workflow は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。
 
 本番 image の差し替え用 Compose file は `compose.deploy.yml` です。ローカル検証用の `compose.yml` と異なり `build:` を持たず、以下の環境変数で image を受け取ります。
 
