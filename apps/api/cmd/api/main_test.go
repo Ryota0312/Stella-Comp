@@ -15,6 +15,8 @@ import (
 	"time"
 
 	stellacompv1 "github.com/Ryota0312/stella-comp/apps/api/internal/gen/stellacomp/v1"
+	apihttp "github.com/Ryota0312/stella-comp/apps/api/internal/transport/http"
+	"github.com/Ryota0312/stella-comp/apps/api/internal/usecase"
 	"github.com/gin-gonic/gin"
 )
 
@@ -100,7 +102,7 @@ func TestPreviewUploadSavesFiles(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 
-	var upload uploadResponse
+	var upload apihttp.UploadResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &upload); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +175,7 @@ func TestCreateJobProcessesUploadedPreviewSession(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 
-	var created jobResponse
+	var created usecase.JobResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +232,7 @@ func TestCreateJobMarksWorkerErrorAsFailed(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 
-	var created jobResponse
+	var created usecase.JobResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +268,7 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
-	var created alignmentJobResponse
+	var created usecase.AlignmentJobResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +318,7 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 	}
 
-	var created alignmentJobResponse
+	var created usecase.AlignmentJobResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +329,7 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	}
 }
 
-func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status string) jobResponse {
+func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status string) usecase.JobResponse {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -339,7 +341,7 @@ func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status st
 			t.Fatalf("status response = %d, body = %s", response.Code, response.Body.String())
 		}
 
-		var job jobResponse
+		var job usecase.JobResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil {
 			t.Fatal(err)
 		}
@@ -351,10 +353,10 @@ func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status st
 	}
 
 	t.Fatalf("job %s did not reach status %s", jobID, status)
-	return jobResponse{}
+	return usecase.JobResponse{}
 }
 
-func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, status string) alignmentJobResponse {
+func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, status string) usecase.AlignmentJobResponse {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -366,7 +368,7 @@ func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, 
 			t.Fatalf("status response = %d, body = %s", response.Code, response.Body.String())
 		}
 
-		var job alignmentJobResponse
+		var job usecase.AlignmentJobResponse
 		if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil {
 			t.Fatal(err)
 		}
@@ -378,5 +380,5 @@ func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, 
 	}
 
 	t.Fatalf("preview alignment job %s did not reach status %s", jobID, status)
-	return alignmentJobResponse{}
+	return usecase.AlignmentJobResponse{}
 }

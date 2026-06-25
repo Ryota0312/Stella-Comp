@@ -41,6 +41,16 @@ stella-comp/
 - 成果物の配信
 - 将来のサーバー処理オプションや有料処理の入口
 
+Go API は `cmd/api` を起動と依存注入だけに絞り、実装は `internal/` 配下のレイヤーに分ける。
+
+- `internal/transport/http`: gin に依存するプレゼンテーション層。HTTP request/response、status code、multipart/JSON binding、CORS を扱う。
+- `internal/usecase`: アプリケーションのユースケース層。preview upload セッションからの合成ジョブ作成、位置合わせ推定ジョブ作成、ジョブ状態遷移、Protocol Buffers 型への変換を扱う。ジョブ状態は現時点ではプロセス内メモリ store を使う。
+- `internal/service`: HTTP や gRPC に依存しないサービス層。preview file の保存、セッションディレクトリ内パス検証、ファイル名・セッションIDの正規化などを扱う。
+- `internal/processor`: Rust worker への gRPC adapter。`usecase.Processor` interface の実装として外部画像処理境界を担当する。
+- `internal/gen`: `proto/` から生成した Go code。Go/Rust 間の契約型として扱い、手編集しない。
+
+HTTP 層から直接 gRPC client やファイルシステム詳細を呼ばず、`usecase` と `service` を経由する。将来 Valkey にジョブ状態を移す場合は、`internal/usecase` の store 実装を差し替える。
+
 ### crates/stellacomp
 
 - RAW/TIFF 読み込み
