@@ -130,7 +130,9 @@ GHCR_USERNAME                  private package を pull する場合のみ
 GHCR_TOKEN                     private package を pull する場合のみ。read packages 権限が必要
 ```
 
-VPS 側には Docker Engine と Docker Compose plugin が必要です。Deploy workflow は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。
+VPS 側には Docker Engine と Docker Compose plugin が必要です。また、`DEPLOY_USER` は passwordless sudo なしで `docker` / `docker compose` を実行できる必要があります。一般的には VPS 上で `sudo usermod -aG docker <DEPLOY_USER>` を実行し、いったん SSH セッションを切断して再ログインしてから `docker ps` が通ることを確認します。
+
+Deploy workflow は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。`permission denied while trying to connect to the Docker daemon socket` が出る場合は、GHCR 認証ではなく `DEPLOY_USER` の Docker socket 権限が不足しています。
 
 本番 image の差し替え用 Compose file は `compose.deploy.yml` です。ローカル検証用の `compose.yml` と異なり `build:` を持たず、以下の環境変数で image を受け取ります。
 

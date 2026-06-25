@@ -137,7 +137,7 @@ GitHub Secrets は以下を使う。
 VPS 側の前提条件:
 
 - Docker Engine と Docker Compose plugin がインストール済み。
-- `DEPLOY_USER` が Docker を実行できる。
+- `DEPLOY_USER` が passwordless sudo なしで Docker を実行できる。通常は `DEPLOY_USER` を `docker` group に追加し、SSH 再ログイン後に `docker ps` が成功する状態にする。`permission denied while trying to connect to the Docker daemon socket` は GHCR 認証ではなく Docker socket 権限不足として扱う。
 - 80 / 443 番ポートが公開され、対象ドメインの DNS が VPS に向いている。
 - `DEPLOY_PATH` 配下に `compose.deploy.yml` と `deploy/nginx.conf` を配置できる。
 
