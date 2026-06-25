@@ -4,8 +4,8 @@ services:
     depends_on:
       - nginx
     ports:
-      - "${STELLA_COMP_HTTP_PORT:-8080}:80"
-      - "${STELLA_COMP_HTTPS_PORT:-8443}:443"
+      - "${STELLA_COMP_HTTP_PORT:-80}:80"
+      - "${STELLA_COMP_HTTPS_PORT:-443}:443"
     environment:
       DOMAINS: "${STELLA_COMP_HTTPS_DOMAINS:-localhost -> http://nginx:80}"
       STAGE: "${STELLA_COMP_HTTPS_STAGE:-local}"

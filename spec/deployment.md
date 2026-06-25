@@ -13,7 +13,8 @@ HTTPS Portal -> nginx -> Next.js web
 - `https-portal`
   - 外部公開口。
   - TLS 終端を担当し、内部の nginx へ HTTP proxy する。
-  - 標準では `STELLA_COMP_HTTPS_STAGE=local` と `localhost -> http://nginx:80` を使い、自己署名証明書で `https://localhost:8443` を提供する。
+  - 標準では `STELLA_COMP_HTTPS_STAGE=local` と `localhost -> http://nginx:80` を使い、自己署名証明書で `https://localhost` を提供する。
+  - local stage の自己署名証明書は OS / ブラウザに信頼されていないため、Chrome では「保護されていない通信」と表示される。これは TLS が無効という意味ではなく、証明書の発行元を信頼できないという意味で扱う。警告なしにする場合は、実ドメインの production stage で Let's Encrypt 証明書を使うか、ローカル証明書またはローカル CA を信頼ストアへ追加する。
   - VPS で実ドメインを使う場合は `STELLA_COMP_HTTP_PORT=80`、`STELLA_COMP_HTTPS_PORT=443`、`STELLA_COMP_HTTPS_STAGE=production`、`STELLA_COMP_HTTPS_DOMAINS='<domain> -> http://nginx:80'` を指定し、Let's Encrypt 証明書を取得する。
   - 証明書や ACME 状態は `https-portal-data` volume に保存する。
 - `nginx`
@@ -40,10 +41,12 @@ Compose 起動時は `DOCKER_API_VERSION=1.52` を指定する。IntelliJ の Do
 ローカル検証の標準アクセス先は以下とする。
 
 ```text
-https://localhost:8443/      Next.js
-https://localhost:8443/api/  Go API
-http://localhost:8080/       HTTPS Portal 経由の HTTP
+https://localhost/      Next.js
+https://localhost/api/  Go API
+http://localhost/       HTTPS Portal 経由の HTTP redirect
 ```
+
+ホスト側の 80 / 443 が使用中の場合は、`STELLA_COMP_HTTP_PORT` と `STELLA_COMP_HTTPS_PORT` で公開ポートを変更する。
 
 本番証明書の取得には Let's Encrypt の HTTP-01 challenge が必要になるため、対象ドメインの 80 番ポートが HTTPS Portal へ到達できる状態にする。
 

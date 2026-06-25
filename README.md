@@ -61,14 +61,14 @@ VPS 運用やコンテナイメージ検証用に、HTTPS Portal、nginx、Next.
 DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
 ```
 
-起動後は HTTPS Portal 経由で `https://localhost:8443` にアクセスします。標準設定では `STELLA_COMP_HTTPS_STAGE=local` の自己署名証明書を使うため、ブラウザで証明書警告が表示されます。
+起動後は HTTPS Portal 経由で `https://localhost` にアクセスします。標準設定では `STELLA_COMP_HTTPS_STAGE=local` の自己署名証明書を使うため、ブラウザで証明書警告が表示されます。
 
 ```text
-https://localhost:8443/      Next.js
-https://localhost:8443/api/  Go API
+https://localhost/      Next.js
+https://localhost/api/  Go API
 ```
 
-HTTP でも確認する場合は `http://localhost:8080` にアクセスできます。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
+HTTP 側は `http://localhost` で受け、HTTPS Portal が HTTPS へリダイレクトします。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
 
 Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候補として同時に起動します。現時点の API 実装はまだプロセス内メモリでジョブ状態を管理し、goroutine で worker を呼び出します。API の複数 replica 化、再起動耐性、retry、cancel、timeout が必要になる段階で、job store と queue をセットで Valkey に移します。詳細は `spec/deployment.md` を参照してください。
 
@@ -79,11 +79,15 @@ Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候
 Compose の標準設定はローカル検証向けです。
 
 ```text
-STELLA_COMP_HTTP_PORT=8080
-STELLA_COMP_HTTPS_PORT=8443
+STELLA_COMP_HTTP_PORT=80
+STELLA_COMP_HTTPS_PORT=443
 STELLA_COMP_HTTPS_DOMAINS=localhost -> http://nginx:80
 STELLA_COMP_HTTPS_STAGE=local
 ```
+
+`80` または `443` が他のプロセスで使用中の場合は、`STELLA_COMP_HTTP_PORT=8080` や `STELLA_COMP_HTTPS_PORT=8443` のようにホスト側ポートを変更してください。その場合のアクセス先は `https://localhost:8443` になります。
+
+Chrome の「保護されていない通信」警告は、local stage の自己署名証明書が OS / ブラウザに信頼されていないために表示されます。これは通信が平文 HTTP になっているという意味ではなく、証明書の発行元を Chrome が信頼できないという意味です。警告なしにしたい場合は、実ドメインで production stage の Let's Encrypt 証明書を使うか、ローカル証明書またはローカル CA を OS / Chrome の信頼ストアに追加する必要があります。
 
 VPS で実ドメインの証明書を取得する場合は、DNS をサーバーへ向けた上で 80/443 を公開し、HTTPS Portal の production stage を使います。
 
