@@ -55,24 +55,47 @@ IntelliJ から起動する場合は、共有 Run Configuration の `Web Dev`、
 
 ## Docker Compose での起動
 
-VPS 運用やコンテナイメージ検証用に、nginx、Next.js、Go API、Rust worker、Valkey を Docker Compose で起動できます。
+VPS 運用やコンテナイメージ検証用に、HTTPS Portal、nginx、Next.js、Go API、Rust worker、Valkey を Docker Compose で起動できます。
 
 ```sh
 DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
 ```
 
-起動後は nginx 経由で `http://localhost:8080` にアクセスします。
+起動後は HTTPS Portal 経由で `https://localhost:8443` にアクセスします。標準設定では `STELLA_COMP_HTTPS_STAGE=local` の自己署名証明書を使うため、ブラウザで証明書警告が表示されます。
 
 ```text
-http://localhost:8080/      Next.js
-http://localhost:8080/api/  Go API
+https://localhost:8443/      Next.js
+https://localhost:8443/api/  Go API
 ```
 
-Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
+HTTP でも確認する場合は `http://localhost:8080` にアクセスできます。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
 
 Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候補として同時に起動します。現時点の API 実装はまだプロセス内メモリでジョブ状態を管理し、goroutine で worker を呼び出します。API の複数 replica 化、再起動耐性、retry、cancel、timeout が必要になる段階で、job store と queue をセットで Valkey に移します。詳細は `spec/deployment.md` を参照してください。
 
 この環境では Docker daemon が Docker API 1.44 以上を要求するため、Compose 起動時は `DOCKER_API_VERSION=1.52` を指定します。これを指定しないと、IntelliJ の起動環境に古い `DOCKER_API_VERSION` が残っている場合に `client version 1.42 is too old` が出ることがあります。
+
+### HTTPS 設定
+
+Compose の標準設定はローカル検証向けです。
+
+```text
+STELLA_COMP_HTTP_PORT=8080
+STELLA_COMP_HTTPS_PORT=8443
+STELLA_COMP_HTTPS_DOMAINS=localhost -> http://nginx:80
+STELLA_COMP_HTTPS_STAGE=local
+```
+
+VPS で実ドメインの証明書を取得する場合は、DNS をサーバーへ向けた上で 80/443 を公開し、HTTPS Portal の production stage を使います。
+
+```sh
+STELLA_COMP_HTTP_PORT=80 \
+STELLA_COMP_HTTPS_PORT=443 \
+STELLA_COMP_HTTPS_DOMAINS='example.com -> http://nginx:80' \
+STELLA_COMP_HTTPS_STAGE=production \
+DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
+```
+
+Let's Encrypt の HTTP-01 challenge を通すため、本番証明書の取得時は対象ドメインの 80 番ポートがインターネットから到達可能である必要があります。
 
 ## エンドポイント方針
 
@@ -83,7 +106,7 @@ http://localhost:3000  Next.js
 http://localhost:8080  Go API
 ```
 
-Docker Compose では nginx, Next.js, Go API, Rust worker, Valkey を立て、nginx で同一オリジンにまとめます。
+Docker Compose では HTTPS Portal, nginx, Next.js, Go API, Rust worker, Valkey を立て、HTTPS Portal で TLS 終端し、nginx で同一オリジンにまとめます。
 
 ```text
 /      -> Next.js

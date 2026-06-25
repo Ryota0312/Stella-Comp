@@ -45,7 +45,7 @@
 - 星位置合わせ、特徴点検出、アフィン変換、合成は、処理内容に応じて TypeScript、ブラウザ WASM/Worker、Rust worker を使い分ける。
 - Go API と Rust worker の境界は gRPC/Protocol Buffers で定義する。Rust worker は位置合わせ推定、比較用サーバー処理、将来の有料/高品質サーバー処理候補として扱う。
 - ツールバージョンは mise で固定する。
-- Docker Compose では nginx、Next.js、Go API、Rust worker、Valkey を起動する。詳細は `spec/deployment.md` を参照する。
+- Docker Compose では HTTPS Portal、nginx、Next.js、Go API、Rust worker、Valkey を起動する。HTTPS Portal で TLS 終端し、nginx で `/` と `/api/` を振り分ける。詳細は `spec/deployment.md` を参照する。
 - Redis 互換キュー基盤は Valkey を標準候補にする。MVP の現在実装はまだ Go API プロセス内メモリのジョブ管理だが、API 複数 replica 化や再起動耐性が必要になる段階で job store と queue を Valkey へ移す。
 
 ## 画像処理方針

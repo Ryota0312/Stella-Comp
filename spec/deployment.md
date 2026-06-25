@@ -5,15 +5,22 @@
 ローカル検証と小規模 VPS 運用の入口として、Docker Compose で以下を起動する。
 
 ```text
-nginx -> Next.js web
-      -> Go API -> Rust worker
-               -> Valkey
+HTTPS Portal -> nginx -> Next.js web
+                     -> Go API -> Rust worker
+                              -> Valkey
 ```
 
-- `nginx`
+- `https-portal`
   - 外部公開口。
+  - TLS 終端を担当し、内部の nginx へ HTTP proxy する。
+  - 標準では `STELLA_COMP_HTTPS_STAGE=local` と `localhost -> http://nginx:80` を使い、自己署名証明書で `https://localhost:8443` を提供する。
+  - VPS で実ドメインを使う場合は `STELLA_COMP_HTTP_PORT=80`、`STELLA_COMP_HTTPS_PORT=443`、`STELLA_COMP_HTTPS_STAGE=production`、`STELLA_COMP_HTTPS_DOMAINS='<domain> -> http://nginx:80'` を指定し、Let's Encrypt 証明書を取得する。
+  - 証明書や ACME 状態は `https-portal-data` volume に保存する。
+- `nginx`
+  - アプリ内部のリバースプロキシ。
   - `/` を Next.js、`/api/` を Go API へ proxy する。
   - preview JPEG upload を扱うため、`client_max_body_size` と proxy timeout を明示する。
+  - HTTPS Portal から受け取った `X-Forwarded-Proto` を Go API / Next.js へ引き継ぐ。
 - `web`
   - Next.js standalone build。
   - Compose では `NEXT_PUBLIC_API_BASE_URL=/api` を build 時に埋め込み、nginx 経由の同一オリジン API を使う。
@@ -29,6 +36,16 @@ nginx -> Next.js web
   - Append only file を有効にし、再起動時にも queue state を残せる構成にする。
 
 Compose 起動時は `DOCKER_API_VERSION=1.52` を指定する。IntelliJ の Docker Compose Configuration `Compose Up` でも Environment variables に同じ値を設定する。
+
+ローカル検証の標準アクセス先は以下とする。
+
+```text
+https://localhost:8443/      Next.js
+https://localhost:8443/api/  Go API
+http://localhost:8080/       HTTPS Portal 経由の HTTP
+```
+
+本番証明書の取得には Let's Encrypt の HTTP-01 challenge が必要になるため、対象ドメインの 80 番ポートが HTTPS Portal へ到達できる状態にする。
 
 ## Valkey 採用方針
 
