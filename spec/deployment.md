@@ -28,6 +28,8 @@ nginx -> Next.js web
   - Redis 互換の queue / job state backend 候補。
   - Append only file を有効にし、再起動時にも queue state を残せる構成にする。
 
+Compose 起動時は `DOCKER_API_VERSION=1.52` を指定する。IntelliJ の Docker Compose Configuration `Compose Up` でも Environment variables に同じ値を設定する。
+
 ## Valkey 採用方針
 
 Redis 互換の汎用キュー基盤としては Valkey を標準候補にする。
