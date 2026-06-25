@@ -97,6 +97,36 @@ DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
 
 Let's Encrypt の HTTP-01 challenge を通すため、本番証明書の取得時は対象ドメインの 80 番ポートがインターネットから到達可能である必要があります。
 
+## GitHub Actions でのデプロイ
+
+VPS 接続先が未定の間、`.github/workflows/deploy.yml` は `workflow_dispatch` による手動実行のみ有効にしています。VPS 準備後は `main` / `master` ブランチへの `push` trigger を workflow に戻すことで、コミット追加や Pull Request merge のたびに検証、Docker image build、GHCR への push、VPS deploy を実行できます。Pull Request の merge は base branch への push として検知します。
+
+VPS 接続先が未設定のまま手動実行した場合は、remote deploy は skip されます。VPS 契約後、Repository secrets に以下を設定してください。
+
+```text
+DEPLOY_HOST                    VPS の host name または IP
+DEPLOY_USER                    SSH 接続ユーザー
+DEPLOY_PORT                    SSH port。未設定時は 22
+DEPLOY_PATH                    VPS 上の配置先。例: /opt/stella-comp
+DEPLOY_SSH_KEY                 SSH 秘密鍵
+STELLA_COMP_HTTPS_DOMAINS      例: example.com -> http://nginx:80
+STELLA_COMP_HTTPS_STAGE        production または staging。未設定時は production
+GHCR_USERNAME                  private package を pull する場合のみ
+GHCR_TOKEN                     private package を pull する場合のみ。read packages 権限が必要
+```
+
+VPS 側には Docker Engine と Docker Compose plugin が必要です。Actions は `compose.deploy.yml` と `deploy/nginx.conf` を `DEPLOY_PATH` へ配置し、GHCR から `web` / `api` / `worker` の image を pull して `docker compose -f compose.deploy.yml up -d --remove-orphans` を実行します。
+
+本番 image の差し替え用 Compose file は `compose.deploy.yml` です。ローカル検証用の `compose.yml` と異なり `build:` を持たず、以下の環境変数で image を受け取ります。
+
+```text
+STELLA_COMP_WEB_IMAGE
+STELLA_COMP_API_IMAGE
+STELLA_COMP_WORKER_IMAGE
+```
+
+詳細は `spec/deployment.md` を参照してください。
+
 ## エンドポイント方針
 
 ローカル開発では Next.js と Go API を別ポートで起動します。

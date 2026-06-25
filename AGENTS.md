@@ -37,6 +37,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - Go/Rust 間の API 境界は `proto/` 配下の Protocol Buffers 定義を正とする。
 - 大きい画像データは gRPC メッセージ本体に載せず、ローカルパスまたは将来のオブジェクトストレージ URI を渡す。
 - Docker Compose では HTTPS Portal、nginx、Next.js、Go API、Rust worker、Valkey を起動する。HTTPS Portal で TLS 終端し、nginx は内部リバースプロキシとして `/` と `/api/` を振り分ける。Compose 環境では API と worker が共有 volume `/data` を同じ絶対パスとして使う。
+- GitHub Actions のデプロイ workflow は、VPS 接続先が未定の間は `workflow_dispatch` の手動実行のみ有効にする。VPS 準備後は `main` / `master` への push を正のトリガーに戻す。PR merge も base branch への push として扱う。VPS 接続先が未設定のまま手動実行した場合は検証と GHCR image publish まで行い、remote deploy は Secrets 未設定として skip する。VPS では `compose.deploy.yml` を使い、Actions が push した GHCR image を pull して起動する。
 - Redis 互換キュー基盤は Valkey を標準候補にする。現時点のジョブ管理は Go API プロセス内メモリだが、API 複数 replica 化、再起動耐性、retry/cancel/timeout を入れる段階で job store と queue を Valkey へ移す。
 - 既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` Rust ライブラリを移植候補として扱う。
 - ローカルに `hoshikasane` の clone があり未コミット変更がある場合は、ユーザー変更として扱い、勝手に巻き戻さない。

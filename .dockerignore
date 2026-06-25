@@ -1,6 +1,7 @@
 .git
 .agents
 .codex
+.github
 .idea
 .data
 **/.gocache
@@ -13,3 +14,4 @@
 Dockerfile
 docker-compose*.yml
 README.md
+*.log
