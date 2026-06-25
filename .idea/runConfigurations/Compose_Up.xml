@@ -6,7 +6,7 @@
           <list>
             <DockerEnvVarImpl>
               <option name="name" value="DOCKER_API_VERSION" />
-              <option name="value" value="1.52" />
+              <option name="value" value="$DOCKER_API_VERSION$" />
             </DockerEnvVarImpl>
           </list>
         </option>
