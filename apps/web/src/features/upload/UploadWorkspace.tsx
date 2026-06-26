@@ -116,6 +116,7 @@ export function UploadWorkspace() {
 
   const canStartPreview = canRunJob && !isJobBusy;
   const canOpenSourceStep = clientCompositeStatus === "completed" && Boolean(resultPreviewUrl);
+  const referencePreviewUrl = activeItem?.previewUrl ?? null;
 
   const jobTimeline = useMemo<TimelineItem[]>(
     () => [
@@ -286,6 +287,7 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               resultRows={resultRows}
               previewUrl={resultPreviewUrl}
+              referencePreviewUrl={referencePreviewUrl}
             />
 
             <div className="step-actions">
@@ -341,6 +343,7 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               resultRows={resultRows}
               previewUrl={resultPreviewUrl}
+              referencePreviewUrl={referencePreviewUrl}
             />
 
             <div className="step-actions">
