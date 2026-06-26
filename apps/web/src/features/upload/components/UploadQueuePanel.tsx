@@ -120,7 +120,7 @@ export function UploadQueuePanel({
         </label>
         <button
           type="button"
-          className="primary-action"
+          className="primary-action step-forward-action"
           disabled={!canStartPreview}
           onClick={onStartPreview}
         >

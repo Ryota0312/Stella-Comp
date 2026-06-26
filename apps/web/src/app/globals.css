@@ -13,6 +13,14 @@
   --accent: #31d4c5;
   --accent-strong: #7df8eb;
   --accent-soft: rgba(49, 212, 197, 0.16);
+  --action-next: #5b8cff;
+  --action-next-strong: #a9c2ff;
+  --action-next-soft: rgba(91, 140, 255, 0.18);
+  --action-download: #46d98b;
+  --action-download-strong: #9af2c4;
+  --action-download-soft: rgba(70, 217, 139, 0.16);
+  --action-secondary: rgba(211, 232, 238, 0.08);
+  --action-secondary-strong: rgba(211, 232, 238, 0.28);
   --warn: #f4bd64;
   --danger: #ff8177;
   --danger-soft: rgba(255, 129, 119, 0.14);
@@ -265,7 +273,8 @@ button {
   transition:
     transform 180ms ease,
     background-color 180ms ease,
-    border-color 180ms ease;
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .primary-action:disabled,
@@ -284,9 +293,29 @@ button {
 }
 
 .secondary-action {
-  color: var(--accent-strong);
-  background: rgba(49, 212, 197, 0.06);
-  border-color: rgba(125, 248, 235, 0.24);
+  color: var(--text);
+  background: var(--action-secondary);
+  border-color: var(--action-secondary-strong);
+}
+
+.step-forward-action {
+  color: #071126;
+  background: var(--action-next);
+  border-color: rgba(169, 194, 255, 0.38);
+  box-shadow: 0 0 0 1px rgba(169, 194, 255, 0.12), 0 12px 30px rgba(91, 140, 255, 0.18);
+}
+
+.step-back-action {
+  color: var(--muted);
+  background: rgba(211, 232, 238, 0.05);
+  border-color: rgba(211, 232, 238, 0.18);
+}
+
+.download-action {
+  color: #04140c;
+  background: var(--action-download);
+  border-color: rgba(154, 242, 196, 0.38);
+  box-shadow: 0 0 0 1px rgba(154, 242, 196, 0.12);
 }
 
 .primary-action:hover,
@@ -629,8 +658,8 @@ button {
 }
 
 .inline-success {
-  color: var(--accent-strong);
-  background: var(--accent-soft);
+  color: var(--action-download-strong);
+  background: var(--action-download-soft);
 }
 
 .warning-list {
@@ -862,6 +891,10 @@ button {
   min-height: 38px;
   padding: 0.56rem 1rem;
   box-shadow: 0 0 0 1px rgba(125, 248, 235, 0.16);
+}
+
+.workspace-step-source .result-actions .download-action {
+  box-shadow: 0 0 0 1px rgba(154, 242, 196, 0.14), 0 12px 28px rgba(70, 217, 139, 0.14);
 }
 
 .workspace-step-source .result-actions .secondary-action {

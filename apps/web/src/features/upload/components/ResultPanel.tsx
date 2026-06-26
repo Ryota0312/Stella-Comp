@@ -274,7 +274,7 @@ function ResultActions({
   return (
     <div className={compact ? "result-actions result-actions-compact" : "result-actions"}>
       <a
-        className={`secondary-action link-action${hasPreview ? "" : " link-disabled"}`}
+        className={`secondary-action step-back-action link-action${hasPreview ? "" : " link-disabled"}`}
         href={previewUrl ?? undefined}
         target="_blank"
         rel="noreferrer"
@@ -283,7 +283,7 @@ function ResultActions({
         {copy.result.openPreview}
       </a>
       <a
-        className={`primary-action link-action${hasDownload ? "" : " link-disabled"}`}
+        className={`primary-action download-action link-action${hasDownload ? "" : " link-disabled"}`}
         href={downloadUrl ?? undefined}
         download={downloadFileName ?? undefined}
         aria-disabled={!hasDownload}

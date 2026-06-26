@@ -46,6 +46,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 現在の最小縦断は preview JPEG first。Web UI は RAW の D&D 直後には重い RAW 現像をせず、埋め込み JPEG またはブラウザで軽量生成した preview JPEG を `POST /api/preview-uploads` に送る。その後 `POST /api/preview-alignments` で Rust worker の `EstimateTransforms` を呼ぶ非同期ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` でpreview座標系の2x3アフィン変換行列を受け取り、ブラウザ Canvas でpreview JPEGを加算平均合成する。この preview upload/preview 合成は D&D 後に自動実行してよい。結果確認 UI では合成結果と基準 preview JPEG の切替/左右比較、カーソル位置のピクセル等倍確認をクライアント側で行う。ユーザーが preview 結果を確認して本画像合成ステップへ進んだ時点で、`libraw-wasm` による RAW 現像と元画像合成を開始する。本画像合成ステップ内の実行ボタンは再実行や将来のオプション変更後の実行用として残す。RAW 現像と元画像合成中は進捗を表示する。`POST /api/jobs` は Rust worker の `AlignAndAverage` によるサーバー側preview合成の比較・フォールバック用として残す。
 - Web UI の結果画像上には、状態、形式、操作ボタンなどの常時表示 UI を重ねない。星景写真家向けの通常表示はフレーム数、preview 生成状況、位置合わせ/合成状況、RAW/TIFF 処理進捗、警告に絞る。preview payload、圧縮率、アップロード件数、job ID、内部ステータス、warning code などのデバッグ情報は staging のみ画面下部に表示する。
 - 結果パネルの操作は画像に重ねず、表示モード付近に置く。最終結果フェーズでは TIFF ダウンロードを同じ操作群の主操作として強調する。フェーズ遷移ボタンは結果画像側へ float/absolute 配置せず、処理状況パネル側の通常フローに置く。
+- Web UI の配色は、シアンを現在ステップ・選択状態・プレビュー処理、青を次フェーズ CTA、緑を成果物ダウンロードと成功状態、グレーを補助操作、アンバーを警告や処理中、赤をエラーや失敗に使う。
 - 最終結果フェーズの基準/合成比較と等倍確認では、preview JPEG ではなく、合成結果と同じ RAW 現像または元画像デコード経路で生成した基準フレーム PNG を比較対象にする。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。

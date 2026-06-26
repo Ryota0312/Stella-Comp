@@ -259,14 +259,14 @@ export function UploadWorkspace() {
                 <>
                   <button
                     type="button"
-                    className="secondary-action"
+                    className="secondary-action step-back-action"
                     onClick={() => setCurrentStep("upload")}
                   >
                     {copy.steps.backToUpload}
                   </button>
                   <button
                     type="button"
-                    className="primary-action"
+                    className="primary-action step-forward-action"
                     disabled={!canOpenSourceStep}
                     onClick={handleStartSource}
                   >
@@ -317,7 +317,7 @@ export function UploadWorkspace() {
               stepActions={
                 <button
                   type="button"
-                  className="secondary-action"
+                  className="secondary-action step-back-action"
                   onClick={() => setCurrentStep("preview")}
                 >
                   {copy.steps.backToPreview}
