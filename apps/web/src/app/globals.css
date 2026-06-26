@@ -189,6 +189,7 @@ button {
 }
 
 .workspace-grid {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   grid-template-rows: minmax(0, 1fr) auto;
@@ -214,6 +215,10 @@ button {
 .panel-preview,
 .panel-results {
   grid-column: 1;
+}
+
+.panel-results {
+  position: relative;
 }
 
 .panel-settings,
@@ -645,13 +650,43 @@ button {
   overflow-wrap: anywhere;
 }
 
+.panel-results .result-stack {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 28px;
+  left: 220px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.panel-results .result-row {
+  display: grid;
+  align-items: start;
+  justify-content: stretch;
+  gap: 2px;
+  min-width: 0;
+  padding: 9px 12px;
+  background: rgba(12, 17, 23, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.panel-results .result-row strong {
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .result-preview {
   position: relative;
   display: grid;
   flex: 1 1 auto;
   place-items: center;
   min-height: 0;
-  margin-top: 14px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -669,11 +704,14 @@ button {
 }
 
 .result-actions {
+  position: absolute;
+  z-index: 2;
+  bottom: 0;
+  left: 28px;
   display: flex;
   flex: 0 0 auto;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 18px;
 }
 
 @media (min-width: 1081px) {
@@ -691,6 +729,19 @@ button {
 
   .workspace-grid {
     flex: 1 1 auto;
+  }
+
+  .workspace-step-preview,
+  .workspace-step-source {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .workspace-step-preview .step-actions,
+  .workspace-step-source .step-actions {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
   }
 
   .workspace-step-upload .panel-upload,
@@ -711,6 +762,11 @@ button {
   .workspace-step-source .panel-results {
     min-height: 0;
   }
+
+  .workspace-step-preview .result-preview,
+  .workspace-step-source .result-preview {
+    margin-bottom: 42px;
+  }
 }
 
 @media (max-width: 1080px) {
@@ -725,6 +781,25 @@ button {
   .panel-jobs,
   .panel-results {
     grid-column: 1;
+  }
+
+  .panel-results .result-stack,
+  .result-actions {
+    position: static;
+  }
+
+  .panel-results .result-stack {
+    grid-template-columns: 1fr;
+    margin-top: 14px;
+  }
+
+  .result-preview {
+    min-height: 360px;
+    margin-top: 14px;
+  }
+
+  .result-actions {
+    margin-top: 18px;
   }
 }
 
