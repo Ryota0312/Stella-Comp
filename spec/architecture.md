@@ -119,7 +119,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 
 この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
 
-初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は D&D 直後には重い現像をせず、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出して preview JPEG 生成に使う。preview JPEG のアップロード、位置合わせ推定、preview 合成は D&D 後に自動実行する。ユーザーが preview 合成結果を確認した後、明示操作で `libraw-wasm` のブラウザ側現像を実行し、現像できた RGB 画像を元画像合成に使う。RAW 現像と元画像合成中は、処理中フレーム数ベースの進捗を表示する。埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱う。
+初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は D&D 直後には重い現像をせず、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出して preview JPEG 生成に使う。preview JPEG のアップロード、位置合わせ推定、preview 合成は D&D 後に自動実行する。ユーザーが preview 合成結果を確認して本画像合成ステップへ進んだ時点で、`libraw-wasm` のブラウザ側現像を実行し、現像できた RGB 画像を元画像合成に使う。RAW 現像と元画像合成中は、処理中フレーム数ベースの進捗を表示する。本画像合成ステップ内の実行ボタンは再実行や将来のオプション変更後の実行操作として残す。埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱う。
 
 注意すべき座標変換:
 
@@ -148,7 +148,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
 
-現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認した後の明示操作で開始し、処理中は進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ永続化は後続で拡張する。
+現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認して本画像合成ステップへ進んだ時点で開始し、処理中は進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。本画像合成ステップ内の実行ボタンは再実行および将来のオプション変更後の実行用として残す。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ永続化は後続で拡張する。
 
 ## 初期 gRPC API 案
 

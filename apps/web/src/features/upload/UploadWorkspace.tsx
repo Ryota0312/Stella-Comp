@@ -207,6 +207,17 @@ export function UploadWorkspace() {
     void runComposite();
   }, [canStartPreview, runComposite]);
 
+  const handleStartSource = useCallback(() => {
+    if (!canOpenSourceStep) {
+      return;
+    }
+
+    setCurrentStep("source");
+    if (rawCompositeStatus === "idle") {
+      void runRawComposite();
+    }
+  }, [canOpenSourceStep, rawCompositeStatus, runRawComposite]);
+
   return (
     <main className="page-shell">
       <HeroMetrics
@@ -289,7 +300,7 @@ export function UploadWorkspace() {
                 type="button"
                 className="primary-action"
                 disabled={!canOpenSourceStep}
-                onClick={() => setCurrentStep("source")}
+                onClick={handleStartSource}
               >
                 {copy.steps.startSource}
               </button>
