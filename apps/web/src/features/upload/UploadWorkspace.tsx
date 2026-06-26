@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HeroMetrics } from "./components/HeroMetrics";
 import { JobStatusPanel } from "./components/JobStatusPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
-import { PreviewSettingsPanel } from "./components/PreviewSettingsPanel";
 import { ResultPanel } from "./components/ResultPanel";
 import { UploadQueuePanel } from "./components/UploadQueuePanel";
 import { useCompositeJob } from "./hooks/useCompositeJob";
@@ -18,7 +17,7 @@ import {
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { ResultRow, TimelineItem } from "./types";
+import type { ResultRow, TimelineItem, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
 
@@ -31,10 +30,10 @@ export function UploadWorkspace() {
     const storedLanguage = window.localStorage.getItem(languageStorageKey);
     return languages.includes(storedLanguage as Language) ? (storedLanguage as Language) : defaultLanguage;
   });
+  const [currentStep, setCurrentStep] = useState<WorkspaceStep>("upload");
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
   const clearJobStateRef = useRef<(preserveStarting?: boolean) => void>(() => undefined);
-  const autoCompositeKeyRef = useRef<string | null>(null);
   const copy = uploadCopy[language];
 
   useEffect(() => {
@@ -59,10 +58,12 @@ export function UploadWorkspace() {
     sourceBytes,
   } = useUploadQueue({
     onQueueChanged: () => {
+      setCurrentStep("upload");
       resetUploadStateRef.current();
       clearJobStateRef.current(false);
     },
     onQueueCleared: () => {
+      setCurrentStep("upload");
       resetUploadStateRef.current();
       clearJobStateRef.current(false);
     },
@@ -113,30 +114,8 @@ export function UploadWorkspace() {
 
   clearJobStateRef.current = clearJobState;
 
-  const autoCompositeKey = useMemo(() => {
-    const previewReadyItems = items.filter((item) => item.previewBlob);
-    const isQueueSettled =
-      items.length > 0 &&
-      items.every(
-        (item) =>
-          item.status !== "queued" && item.status !== "generating" && item.status !== "uploading",
-      );
-
-    if (!isQueueSettled || previewReadyItems.length === 0 || !canRunJob) {
-      return null;
-    }
-
-    return previewReadyItems.map((item) => `${item.id}:${item.previewSize ?? 0}`).join("|");
-  }, [canRunJob, items]);
-
-  useEffect(() => {
-    if (!autoCompositeKey || autoCompositeKeyRef.current === autoCompositeKey || isJobBusy) {
-      return;
-    }
-
-    autoCompositeKeyRef.current = autoCompositeKey;
-    void runComposite();
-  }, [autoCompositeKey, isJobBusy, runComposite]);
+  const canStartPreview = canRunJob && !isJobBusy;
+  const canOpenSourceStep = clientCompositeStatus === "completed" && Boolean(resultPreviewUrl);
 
   const jobTimeline = useMemo<TimelineItem[]>(
     () => [
@@ -219,75 +198,151 @@ export function UploadWorkspace() {
     inputRef.current?.click();
   }
 
+  const handleStartPreview = useCallback(() => {
+    if (!canStartPreview) {
+      return;
+    }
+
+    setCurrentStep("preview");
+    void runComposite();
+  }, [canStartPreview, runComposite]);
+
   return (
     <main className="page-shell">
       <HeroMetrics
         compressionRatio={compressionRatio}
         copy={copy}
+        currentStep={currentStep}
         frameCount={items.length}
         language={language}
         previewBytes={previewBytes}
         setLanguage={setLanguage}
       />
 
-      <section className="workspace-grid">
-        <UploadQueuePanel
-          activeItem={activeItem}
-          clearQueue={clearQueue}
-          copy={copy}
-          enqueueFiles={enqueueFiles}
-          inputRef={inputRef}
-          isDragging={isDragging}
-          items={items}
-          language={language}
-          onSelectFrames={handleSelectFrames}
-          setActiveId={setActiveId}
-          setIsDragging={setIsDragging}
-        />
+      <section className={`workspace-grid workspace-step-${currentStep}`}>
+        {currentStep === "upload" ? (
+          <>
+            <UploadQueuePanel
+              activeItem={activeItem}
+              canStartPreview={canStartPreview}
+              clearQueue={clearQueue}
+              copy={copy}
+              enqueueFiles={enqueueFiles}
+              inputRef={inputRef}
+              isDragging={isDragging}
+              items={items}
+              language={language}
+              onSelectFrames={handleSelectFrames}
+              onStartPreview={handleStartPreview}
+              setActiveId={setActiveId}
+              setIsDragging={setIsDragging}
+            />
 
-        <PreviewSettingsPanel
-          activeItem={activeItem}
-          copy={copy}
-          items={items}
-          setActiveId={setActiveId}
-        />
+            <PreviewPanel activeItem={activeItem} copy={copy} />
+          </>
+        ) : null}
 
-        <PreviewPanel
-          activeItem={activeItem}
-          copy={copy}
-        />
+        {currentStep === "preview" ? (
+          <>
+            <JobStatusPanel
+              canRunJob={canRunJob}
+              compressionRatio={compressionRatio}
+              clientCompositeStatus={clientCompositeStatus}
+              clientWarnings={clientWarnings}
+              copy={copy}
+              isJobBusy={isJobBusy}
+              job={job}
+              jobError={jobError}
+              language={language}
+              previewBytes={previewBytes}
+              rawCompositeProgress={rawCompositeProgress}
+              rawCompositeStatus={rawCompositeStatus}
+              runComposite={runComposite}
+              runRawComposite={runRawComposite}
+              showRawAction={false}
+              sourceBytes={sourceBytes}
+              timeline={jobTimeline}
+              uploadError={uploadError}
+              uploadSummary={uploadSummary}
+            />
 
-        <JobStatusPanel
-          canRunJob={canRunJob}
-          compressionRatio={compressionRatio}
-          clientCompositeStatus={clientCompositeStatus}
-          clientWarnings={clientWarnings}
-          copy={copy}
-          isJobBusy={isJobBusy}
-          job={job}
-          jobError={jobError}
-          language={language}
-          previewBytes={previewBytes}
-          rawCompositeProgress={rawCompositeProgress}
-          rawCompositeStatus={rawCompositeStatus}
-          runComposite={runComposite}
-          runRawComposite={runRawComposite}
-          sourceBytes={sourceBytes}
-          timeline={jobTimeline}
-          uploadError={uploadError}
-          uploadSummary={uploadSummary}
-        />
+            <ResultPanel
+              clientCompositeStatus={clientCompositeStatus}
+              copy={copy}
+              downloadFileName={resultDownloadFileName}
+              downloadUrl={resultDownloadUrl}
+              language={language}
+              resultLabel={resultLabel}
+              resultRows={resultRows}
+              previewUrl={resultPreviewUrl}
+            />
 
-        <ResultPanel
-          clientCompositeStatus={clientCompositeStatus}
-          copy={copy}
-          downloadFileName={resultDownloadFileName}
-          downloadUrl={resultDownloadUrl}
-          language={language}
-          resultLabel={resultLabel}
-          resultRows={resultRows}
-          previewUrl={resultPreviewUrl}
-        />
+            <div className="step-actions">
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={() => setCurrentStep("upload")}
+              >
+                {copy.steps.backToUpload}
+              </button>
+              <button
+                type="button"
+                className="primary-action"
+                disabled={!canOpenSourceStep}
+                onClick={() => setCurrentStep("source")}
+              >
+                {copy.steps.startSource}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {currentStep === "source" ? (
+          <>
+            <JobStatusPanel
+              canRunJob={canRunJob}
+              compressionRatio={compressionRatio}
+              clientCompositeStatus={clientCompositeStatus}
+              clientWarnings={clientWarnings}
+              copy={copy}
+              isJobBusy={isJobBusy}
+              job={job}
+              jobError={jobError}
+              language={language}
+              previewBytes={previewBytes}
+              rawCompositeProgress={rawCompositeProgress}
+              rawCompositeStatus={rawCompositeStatus}
+              runComposite={runComposite}
+              runRawComposite={runRawComposite}
+              showPreviewAction={false}
+              sourceBytes={sourceBytes}
+              timeline={jobTimeline}
+              uploadError={uploadError}
+              uploadSummary={uploadSummary}
+            />
+
+            <ResultPanel
+              clientCompositeStatus={clientCompositeStatus}
+              copy={copy}
+              downloadFileName={resultDownloadFileName}
+              downloadUrl={resultDownloadUrl}
+              language={language}
+              resultLabel={resultLabel}
+              resultRows={resultRows}
+              previewUrl={resultPreviewUrl}
+            />
+
+            <div className="step-actions">
+              <button
+                type="button"
+                className="secondary-action"
+                onClick={() => setCurrentStep("preview")}
+              >
+                {copy.steps.backToPreview}
+              </button>
+            </div>
+          </>
+        ) : null}
       </section>
     </main>
   );

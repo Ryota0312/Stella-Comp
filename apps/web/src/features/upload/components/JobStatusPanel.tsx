@@ -28,6 +28,8 @@ type JobStatusPanelProps = {
   rawCompositeStatus: RawCompositeStatus;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
+  showPreviewAction?: boolean;
+  showRawAction?: boolean;
   sourceBytes: number;
   timeline: TimelineItem[];
   uploadError: string | null;
@@ -49,6 +51,8 @@ export function JobStatusPanel({
   rawCompositeStatus,
   runComposite,
   runRawComposite,
+  showPreviewAction = true,
+  showRawAction = true,
   sourceBytes,
   timeline,
   uploadError,
@@ -62,22 +66,26 @@ export function JobStatusPanel({
           <h2>{copy.execution.title}</h2>
         </div>
         <div className="action-row">
-          <button
-            type="button"
-            className="primary-action"
-            disabled={!canRunJob || isJobBusy}
-            onClick={runComposite}
-          >
-            {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
-          </button>
-          <button
-            type="button"
-            className="secondary-action"
-            disabled={!canRunJob || isJobBusy}
-            onClick={runRawComposite}
-          >
-            {copy.execution.runRawStack}
-          </button>
+          {showPreviewAction ? (
+            <button
+              type="button"
+              className="primary-action"
+              disabled={!canRunJob || isJobBusy}
+              onClick={runComposite}
+            >
+              {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
+            </button>
+          ) : null}
+          {showRawAction ? (
+            <button
+              type="button"
+              className="secondary-action"
+              disabled={!canRunJob || isJobBusy}
+              onClick={runRawComposite}
+            >
+              {copy.execution.runRawStack}
+            </button>
+          ) : null}
         </div>
       </header>
       <div className="timeline">

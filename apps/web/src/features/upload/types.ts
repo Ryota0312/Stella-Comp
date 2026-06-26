@@ -73,6 +73,8 @@ export type ResultRow = {
   value: string;
 };
 
+export type WorkspaceStep = "upload" | "preview" | "source";
+
 export type CompositeOutput = {
   previewBlob: Blob;
   downloadBlob: Blob;

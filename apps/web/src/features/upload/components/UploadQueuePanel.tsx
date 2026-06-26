@@ -10,6 +10,7 @@ import { formatBytes } from "../utils";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
+  canStartPreview: boolean;
   clearQueue: () => void;
   copy: UploadCopy;
   enqueueFiles: (fileList: FileList | null) => void;
@@ -18,12 +19,14 @@ type UploadQueuePanelProps = {
   items: QueueItem[];
   language: Language;
   onSelectFrames: () => void;
+  onStartPreview: () => void;
   setActiveId: (id: string) => void;
   setIsDragging: (isDragging: boolean) => void;
 };
 
 export function UploadQueuePanel({
   activeItem,
+  canStartPreview,
   clearQueue,
   copy,
   enqueueFiles,
@@ -32,6 +35,7 @@ export function UploadQueuePanel({
   items,
   language,
   onSelectFrames,
+  onStartPreview,
   setActiveId,
   setIsDragging,
 }: UploadQueuePanelProps) {
@@ -93,6 +97,29 @@ export function UploadQueuePanel({
       >
         <p>{copy.upload.dropTitle}</p>
         <span>{copy.upload.dropDescription}</span>
+      </div>
+      <div className="upload-controls">
+        <label className="field">
+          <span>{copy.upload.referenceFrame}</span>
+          <select value={activeItem?.id ?? ""} onChange={(event) => setActiveId(event.target.value)}>
+            <option value="" disabled>
+              {copy.upload.selectReference}
+            </option>
+            {items.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          className="primary-action"
+          disabled={!canStartPreview}
+          onClick={onStartPreview}
+        >
+          {copy.steps.startPreview}
+        </button>
       </div>
       <div className="table-list" role="table" aria-label={copy.upload.queuedImagesLabel}>
         {items.length === 0 ? (
