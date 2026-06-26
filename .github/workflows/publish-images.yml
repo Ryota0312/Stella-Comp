@@ -134,6 +134,7 @@ jobs:
           tags: ${{ steps.images.outputs.web_tags }}
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=/api
+            NEXT_PUBLIC_DEPLOY_STAGE=${{ steps.images.outputs.https_stage }}
 
       - name: Build and push API image
         uses: docker/build-push-action@v6

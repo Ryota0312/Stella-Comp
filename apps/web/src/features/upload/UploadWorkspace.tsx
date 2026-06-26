@@ -17,9 +17,12 @@ import {
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { ResultRow, TimelineItem, WorkspaceStep } from "./types";
+import type { TimelineItem, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
+const debugEnabled =
+  process.env.NEXT_PUBLIC_DEPLOY_STAGE === "staging" ||
+  process.env.NEXT_PUBLIC_APP_ENV === "staging";
 
 export function UploadWorkspace() {
   const [language, setLanguage] = useState<Language>(() => {
@@ -49,7 +52,6 @@ export function UploadWorkspace() {
     enqueueFiles,
     isDragging,
     items,
-    pendingRawCount,
     previewBytes,
     readyCount,
     setActiveId,
@@ -119,80 +121,57 @@ export function UploadWorkspace() {
   const referencePreviewUrl = activeItem?.previewUrl ?? null;
 
   const jobTimeline = useMemo<TimelineItem[]>(
-    () => [
-      {
-        label: copy.timeline.selectedFrames,
-        value: `${items.length}`,
-        tone: items.length > 0 ? "active" : "muted",
-      },
-      {
-        label: copy.timeline.previewGeneration,
-        value: copy.timeline.ready(readyCount),
-        tone: readyCount > 0 ? "active" : "muted",
-      },
-      {
-        label: copy.timeline.rawExtraction,
-        value:
-          pendingRawCount > 0 ? copy.timeline.pending(pendingRawCount) : copy.timeline.noPendingRaw,
-        tone: pendingRawCount > 0 ? "warn" : "muted",
-      },
-      {
-        label: copy.timeline.previewUpload,
-        value: uploadSummary
-          ? copy.timeline.uploaded(uploadSummary.uploadedCount)
-          : copy.timeline.notUploaded,
-        tone: uploadSummary ? "active" : "muted",
-      },
-      {
-        label: copy.timeline.clientStack,
-        value: clientCompositeStatusText(clientCompositeStatus, language),
-        tone:
-          clientCompositeStatus === "failed"
-            ? "warn"
-            : clientCompositeStatus === "idle"
-              ? "muted"
-            : "active",
-      },
-      {
-        label: copy.timeline.rawStack,
-        value: rawCompositeStatusText(rawCompositeStatus, language),
-        tone:
-          rawCompositeStatus === "failed"
-            ? "warn"
-            : rawCompositeStatus === "idle"
-              ? "muted"
-              : "active",
-      },
-    ],
+    () =>
+      currentStep === "source"
+        ? [
+            {
+              label: copy.timeline.rawStack,
+              value: rawCompositeStatusText(rawCompositeStatus, language),
+              tone:
+                rawCompositeStatus === "failed"
+                  ? "warn"
+                  : rawCompositeStatus === "idle"
+                    ? "muted"
+                    : "active",
+            },
+            {
+              label: copy.timeline.sourceOutput,
+              value: resultLabel === "tiff" ? copy.timeline.tiffReady : copy.timeline.waiting,
+              tone: resultLabel === "tiff" ? "active" : "muted",
+            },
+          ]
+        : [
+            {
+              label: copy.timeline.selectedFrames,
+              value: copy.hero.frames(items.length),
+              tone: items.length > 0 ? "active" : "muted",
+            },
+            {
+              label: copy.timeline.previewGeneration,
+              value: copy.timeline.ready(readyCount),
+              tone: readyCount > 0 ? "active" : "muted",
+            },
+            {
+              label: copy.timeline.clientStack,
+              value: clientCompositeStatusText(clientCompositeStatus, language),
+              tone:
+                clientCompositeStatus === "failed"
+                  ? "warn"
+                  : clientCompositeStatus === "idle"
+                    ? "muted"
+                    : "active",
+            },
+          ],
     [
       clientCompositeStatus,
       copy,
+      currentStep,
       items.length,
       language,
-      pendingRawCount,
       rawCompositeStatus,
       readyCount,
-      uploadSummary,
+      resultLabel,
     ],
-  );
-
-  const resultRows = useMemo<ResultRow[]>(
-    () => [
-      {
-        label: copy.resultRows.resultPng,
-        value: resultLabel
-          ? resultLabel === "tiff"
-            ? copy.resultRows.resultTiff
-            : copy.resultRows.resultPreviewPng
-          : copy.resultRows.notGenerated,
-      },
-      {
-        label: copy.resultRows.stackStatus,
-        value: clientCompositeStatusText(clientCompositeStatus, language),
-      },
-      { label: copy.resultRows.warnings, value: `${clientWarnings.length}` },
-    ],
-    [clientCompositeStatus, clientWarnings.length, copy, language, resultLabel],
   );
 
   function handleSelectFrames() {
@@ -262,6 +241,7 @@ export function UploadWorkspace() {
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}
               copy={copy}
+              debugEnabled={debugEnabled}
               isJobBusy={isJobBusy}
               job={job}
               jobError={jobError}
@@ -269,6 +249,7 @@ export function UploadWorkspace() {
               previewBytes={previewBytes}
               rawCompositeProgress={rawCompositeProgress}
               rawCompositeStatus={rawCompositeStatus}
+              resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
               showRawAction={false}
@@ -285,7 +266,6 @@ export function UploadWorkspace() {
               downloadUrl={resultDownloadUrl}
               language={language}
               resultLabel={resultLabel}
-              resultRows={resultRows}
               previewUrl={resultPreviewUrl}
               referencePreviewUrl={referencePreviewUrl}
             />
@@ -318,6 +298,7 @@ export function UploadWorkspace() {
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}
               copy={copy}
+              debugEnabled={debugEnabled}
               isJobBusy={isJobBusy}
               job={job}
               jobError={jobError}
@@ -325,6 +306,7 @@ export function UploadWorkspace() {
               previewBytes={previewBytes}
               rawCompositeProgress={rawCompositeProgress}
               rawCompositeStatus={rawCompositeStatus}
+              resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
               showPreviewAction={false}
@@ -341,7 +323,6 @@ export function UploadWorkspace() {
               downloadUrl={resultDownloadUrl}
               language={language}
               resultLabel={resultLabel}
-              resultRows={resultRows}
               previewUrl={resultPreviewUrl}
               referencePreviewUrl={referencePreviewUrl}
             />

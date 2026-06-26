@@ -16,7 +16,9 @@ WORKDIR /src/apps/web
 RUN corepack enable
 
 ARG NEXT_PUBLIC_API_BASE_URL=/api
+ARG NEXT_PUBLIC_DEPLOY_STAGE=local
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+ENV NEXT_PUBLIC_DEPLOY_STAGE=${NEXT_PUBLIC_DEPLOY_STAGE}
 
 COPY --from=deps /src/apps/web/node_modules ./node_modules
 COPY apps/web ./

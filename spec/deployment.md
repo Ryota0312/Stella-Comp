@@ -24,7 +24,7 @@ HTTPS Portal -> nginx -> Next.js web
   - HTTPS Portal から受け取った `X-Forwarded-Proto` を Go API / Next.js へ引き継ぐ。
 - `web`
   - Next.js standalone build。
-  - Compose では `NEXT_PUBLIC_API_BASE_URL=/api` を build 時に埋め込み、nginx 経由の同一オリジン API を使う。
+  - Compose では `NEXT_PUBLIC_API_BASE_URL=/api` を build 時に埋め込み、nginx 経由の同一オリジン API を使う。ローカル Compose build では `STELLA_COMP_DEPLOY_STAGE` を `NEXT_PUBLIC_DEPLOY_STAGE` に渡し、`staging` の場合のみ Web UI 下部にデバッグ情報を表示する。
 - `api`
   - Go + gin の REST API。
   - `STELLA_COMP_DATA_DIR=/data` を使い、upload と job result を共有 volume に保存する。

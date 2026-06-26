@@ -30,6 +30,7 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         NEXT_PUBLIC_API_BASE_URL: /api
+        NEXT_PUBLIC_DEPLOY_STAGE: ${STELLA_COMP_DEPLOY_STAGE:-local}
     environment:
       NODE_ENV: production
     expose:

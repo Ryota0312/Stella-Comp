@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
-import type { ClientCompositeStatus, ResultRow } from "../types";
+import type { ClientCompositeStatus } from "../types";
 import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
 
 type ViewMode = "composite" | "reference" | "sideBySide";
@@ -37,7 +37,6 @@ type ResultPanelProps = {
   downloadUrl: string | null;
   language: Language;
   resultLabel: string | null;
-  resultRows: ResultRow[];
   previewUrl: string | null;
   referencePreviewUrl: string | null;
 };
@@ -49,7 +48,6 @@ export function ResultPanel({
   downloadUrl,
   language,
   resultLabel,
-  resultRows,
   previewUrl,
   referencePreviewUrl,
 }: ResultPanelProps) {
@@ -155,14 +153,6 @@ export function ResultPanel({
           ))}
         </div>
       </header>
-      <div className="result-stack">
-        {resultRows.map((row) => (
-          <div className="result-row" key={row.label}>
-            <span>{row.label}</span>
-            <strong>{row.value}</strong>
-          </div>
-        ))}
-      </div>
       <div className="result-preview">
         {previewUrl ? (
           <div
@@ -173,6 +163,7 @@ export function ResultPanel({
               <ImageFrame
                 alt={copy.result.referenceAlt}
                 label={copy.result.viewReference}
+                showLabel={false}
                 onLoadSize={setReferenceSize}
                 onPointerMove={(event) => handlePointerMove(event, referenceSize)}
                 src={referencePreviewUrl}
@@ -182,6 +173,7 @@ export function ResultPanel({
               <ImageFrame
                 alt={copy.result.compositeAlt}
                 label={copy.result.viewComposite}
+                showLabel={false}
                 onLoadSize={setCompositeSize}
                 onPointerMove={(event) => handlePointerMove(event, compositeSize)}
                 src={previewUrl}
@@ -192,6 +184,7 @@ export function ResultPanel({
                 <ImageFrame
                   alt={copy.result.referenceAlt}
                   label={copy.result.viewReference}
+                  showLabel
                   onLoadSize={setReferenceSize}
                   onPointerMove={(event) => handlePointerMove(event, referenceSize)}
                   src={referencePreviewUrl}
@@ -199,6 +192,7 @@ export function ResultPanel({
                 <ImageFrame
                   alt={copy.result.compositeAlt}
                   label={copy.result.viewComposite}
+                  showLabel
                   onLoadSize={setCompositeSize}
                   onPointerMove={(event) => handlePointerMove(event, compositeSize)}
                   src={previewUrl}
@@ -264,12 +258,14 @@ export function ResultPanel({
 function ImageFrame({
   alt,
   label,
+  showLabel,
   onLoadSize,
   onPointerMove,
   src,
 }: {
   alt: string;
   label: string;
+  showLabel: boolean;
   onLoadSize: (size: ImageSize) => void;
   onPointerMove: (event: PointerEvent<HTMLDivElement>) => void;
   src: string | null;
@@ -277,25 +273,27 @@ function ImageFrame({
   if (!src) {
     return (
       <div className="result-image-frame result-image-empty">
-        <span>{label}</span>
+        {showLabel ? <div className="result-image-frame-header">{label}</div> : null}
       </div>
     );
   }
 
   return (
-    <div className="result-image-frame" onPointerMove={onPointerMove}>
-      <span className="result-image-label">{label}</span>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        onLoad={(event) => {
-          onLoadSize({
-            width: event.currentTarget.naturalWidth,
-            height: event.currentTarget.naturalHeight,
-          });
-        }}
-      />
+    <div className={`result-image-frame${showLabel ? "" : " result-image-frame-unlabeled"}`}>
+      {showLabel ? <div className="result-image-frame-header">{label}</div> : null}
+      <div className="result-image-viewport" onPointerMove={onPointerMove}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          onLoad={(event) => {
+            onLoadSize({
+              width: event.currentTarget.naturalWidth,
+              height: event.currentTarget.naturalHeight,
+            });
+          }}
+        />
+      </div>
     </div>
   );
 }

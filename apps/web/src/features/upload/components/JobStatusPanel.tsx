@@ -19,6 +19,7 @@ type JobStatusPanelProps = {
   clientCompositeStatus: ClientCompositeStatus;
   clientWarnings: ProcessingWarning[];
   copy: UploadCopy;
+  debugEnabled: boolean;
   isJobBusy: boolean;
   job: JobSummary | null;
   jobError: string | null;
@@ -26,6 +27,7 @@ type JobStatusPanelProps = {
   previewBytes: number;
   rawCompositeProgress: CompositeProgress | null;
   rawCompositeStatus: RawCompositeStatus;
+  resultLabel: "png" | "tiff" | null;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
   showPreviewAction?: boolean;
@@ -42,6 +44,7 @@ export function JobStatusPanel({
   clientCompositeStatus,
   clientWarnings,
   copy,
+  debugEnabled,
   isJobBusy,
   job,
   jobError,
@@ -49,6 +52,7 @@ export function JobStatusPanel({
   previewBytes,
   rawCompositeProgress,
   rawCompositeStatus,
+  resultLabel,
   runComposite,
   runRawComposite,
   showPreviewAction = true,
@@ -58,6 +62,19 @@ export function JobStatusPanel({
   uploadError,
   uploadSummary,
 }: JobStatusPanelProps) {
+  const debugRows = debugEnabled
+    ? [
+        [copy.debug.previewPayload, `${formatBytes(previewBytes)} / ${formatBytes(sourceBytes)}`],
+        [copy.debug.compression, compressionRatio > 0 ? `${(compressionRatio * 100).toFixed(1)}%` : "-"],
+        [copy.debug.uploaded, uploadSummary ? `${uploadSummary.uploadedCount}` : "-"],
+        [copy.debug.alignmentJob, job ? `${job.jobId} (${job.status})` : "-"],
+        [copy.debug.clientStatus, clientCompositeStatusText(clientCompositeStatus, language)],
+        [copy.debug.rawStatus, rawCompositeStatusText(rawCompositeStatus, language)],
+        [copy.debug.output, resultLabel ?? "-"],
+        [copy.debug.warnings, `${clientWarnings.length}`],
+      ]
+    : [];
+
   return (
     <section className="panel panel-jobs">
       <header className="panel-header">
@@ -96,29 +113,7 @@ export function JobStatusPanel({
           </div>
         ))}
       </div>
-      <div className="progress-block">
-        <div className="progress-header">
-          <span>{copy.execution.previewPayload}</span>
-          <strong>
-            {formatBytes(previewBytes)} / {formatBytes(sourceBytes)}
-          </strong>
-        </div>
-        <div className="progress-bar" aria-hidden="true">
-          <div
-            className="progress-value"
-            style={{ width: `${Math.min(compressionRatio * 100, 100)}%` }}
-          />
-        </div>
-      </div>
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
-      {uploadSummary ? (
-        <p className="inline-success">
-          {copy.execution.uploadedSummary(
-            uploadSummary.uploadedCount,
-            formatBytes(uploadSummary.uploadedBytes),
-          )}
-        </p>
-      ) : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
       {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
         <p className="inline-success">
@@ -170,6 +165,30 @@ export function JobStatusPanel({
               <span>{warning.message}</span>
             </p>
           ))}
+        </div>
+      ) : null}
+      {debugEnabled ? (
+        <div className="debug-panel" aria-label={copy.debug.title}>
+          <h3>{copy.debug.title}</h3>
+          <dl>
+            {debugRows.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {rawCompositeProgress ? (
+            <p>
+              {copy.debug.rawProgress}: {rawCompositeProgress.current} / {rawCompositeProgress.total}{" "}
+              ({rawCompositeProgress.label})
+            </p>
+          ) : null}
+          {clientWarnings.length ? (
+            <p>
+              {copy.debug.warningCodes}: {clientWarnings.map((warning) => warning.code).join(", ")}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>
