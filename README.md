@@ -44,6 +44,13 @@ mise exec -- pnpm dev
 
 Next.js は標準で `http://localhost:3000` を使います。フロントエンドは標準で `http://localhost:8080/api` の Go API に preview JPEG をアップロードします。本番または nginx 経由では `NEXT_PUBLIC_API_BASE_URL=/api` を想定します。
 
+staging 用のデバッグ表示を確認する場合は、Next.js 起動時に `NEXT_PUBLIC_APP_ENV=staging` を指定します。これにより、画面の処理状況パネル下部に `staging debug` として preview payload、compression、uploaded previews、alignment job、内部ステータス、出力形式、警告数などが表示されます。
+
+```sh
+cd apps/web
+NEXT_PUBLIC_APP_ENV=staging mise exec -- pnpm dev
+```
+
 ポートを指定する場合:
 
 ```sh
@@ -62,6 +69,12 @@ DOCKER_API_VERSION=1.52 docker compose -f compose.yml up --build
 ```
 
 起動後は HTTPS Portal 経由で `https://localhost` にアクセスします。標準設定では `STELLA_COMP_HTTPS_STAGE=local` の自己署名証明書を使うため、ブラウザで証明書警告が表示されます。
+
+Docker Compose で staging 用のデバッグ表示を確認する場合は、Web image の build 時に `STELLA_COMP_DEPLOY_STAGE=staging` を渡します。
+
+```sh
+DOCKER_API_VERSION=1.52 STELLA_COMP_DEPLOY_STAGE=staging docker compose -f compose.yml up --build
+```
 
 ```text
 https://localhost/      Next.js
