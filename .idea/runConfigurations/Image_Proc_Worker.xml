@@ -4,7 +4,6 @@
     <option name="command" value="run -p worker" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <envs>
-      <env name="RUSTUP_TOOLCHAIN" value="1.96.0" />
       <env name="STELLA_COMP_WORKER_ADDR" value="[::1]:50051" />
     </envs>
     <option name="emulateTerminal" value="true" />

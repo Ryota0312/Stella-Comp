@@ -7,6 +7,8 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/stellacomp/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/worker/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/stellacomp/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/api/cmd/api" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/apps/api/internal" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/apps/api/.gocache" />
       <excludeFolder url="file://$MODULE_DIR$/apps/api/.gomodcache" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
