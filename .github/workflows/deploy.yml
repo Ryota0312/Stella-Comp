@@ -1,12 +1,30 @@
 name: Deploy
 
 on:
+  workflow_call:
+    inputs:
+      image_tag:
+        description: "GHCR image tag to deploy"
+        required: true
+        type: string
+      https_stage:
+        description: "HTTPS Portal stage"
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       image_tag:
         description: "GHCR image tag to deploy"
         required: true
         default: "latest"
+      https_stage:
+        description: "HTTPS Portal stage"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
 
 permissions:
   contents: read
@@ -31,18 +49,35 @@ jobs:
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       STELLA_COMP_HTTPS_DOMAINS: ${{ secrets.STELLA_COMP_HTTPS_DOMAINS }}
-      STELLA_COMP_HTTPS_STAGE: ${{ secrets.STELLA_COMP_HTTPS_STAGE }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate deploy inputs
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          HTTPS_STAGE: ${{ inputs.https_stage }}
+        run: |
+          tag="$IMAGE_TAG"
+          stage="$HTTPS_STAGE"
+          if [[ ! "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Invalid Docker image tag: ${tag}"
+            exit 1
+          fi
+          if [ "$stage" != "production" ] && [ "$stage" != "staging" ]; then
+            echo "::error::Invalid HTTPS Portal stage: ${stage}"
+            exit 1
+          fi
+
       - name: Resolve image names
         id: images
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           repo="$(printf '%s' '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
           base="${{ env.REGISTRY }}/${owner}/${repo}"
-          tag="${{ inputs.image_tag }}"
+          tag="$IMAGE_TAG"
           echo "web=${base}/web:${tag}" >> "$GITHUB_OUTPUT"
           echo "api=${base}/api:${tag}" >> "$GITHUB_OUTPUT"
           echo "worker=${base}/worker:${tag}" >> "$GITHUB_OUTPUT"
@@ -73,8 +108,10 @@ jobs:
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" deploy/nginx.conf "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/nginx.conf"
 
       - name: Pull images and restart compose
+        env:
+          HTTPS_STAGE: ${{ inputs.https_stage }}
         run: |
-          stage="${STELLA_COMP_HTTPS_STAGE:-production}"
+          stage="$HTTPS_STAGE"
           if [ -n "$GHCR_USERNAME" ] && [ -n "$GHCR_TOKEN" ]; then
             printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
               "docker login ghcr.io -u '${GHCR_USERNAME}' --password-stdin"

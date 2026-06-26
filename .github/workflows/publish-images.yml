@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 permissions:
@@ -61,6 +63,8 @@ jobs:
       web-image: ${{ steps.images.outputs.web }}
       api-image: ${{ steps.images.outputs.api }}
       worker-image: ${{ steps.images.outputs.worker }}
+      image-tag: ${{ steps.images.outputs.image_tag }}
+      https-stage: ${{ steps.images.outputs.https_stage }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -74,16 +78,52 @@ jobs:
 
       - name: Resolve image names
         id: images
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           owner="$(printf '%s' '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
           repo="$(printf '%s' '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')"
           base="${{ env.REGISTRY }}/${owner}/${repo}"
-          echo "web=${base}/web:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "api=${base}/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "worker=${base}/worker:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          echo "web_latest=${base}/web:latest" >> "$GITHUB_OUTPUT"
-          echo "api_latest=${base}/api:latest" >> "$GITHUB_OUTPUT"
-          echo "worker_latest=${base}/worker:latest" >> "$GITHUB_OUTPUT"
+
+          if [ "$REF_TYPE" = "tag" ]; then
+            tag="$REF_NAME"
+            if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              https_stage="production"
+            elif [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*$ ]]; then
+              https_stage="staging"
+            else
+              echo "::error::Unsupported release tag: ${tag}. Use v1.0.0 for production or v1.0.0-rc.1 for staging."
+              exit 1
+            fi
+            push_latest="false"
+          else
+            tag="$COMMIT_SHA"
+            https_stage=""
+            push_latest="true"
+          fi
+
+          echo "image_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "https_stage=${https_stage}" >> "$GITHUB_OUTPUT"
+          echo "web=${base}/web:${tag}" >> "$GITHUB_OUTPUT"
+          echo "api=${base}/api:${tag}" >> "$GITHUB_OUTPUT"
+          echo "worker=${base}/worker:${tag}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "web_tags<<EOF"
+            echo "${base}/web:${tag}"
+            if [ "$push_latest" = "true" ]; then echo "${base}/web:latest"; fi
+            echo "EOF"
+            echo "api_tags<<EOF"
+            echo "${base}/api:${tag}"
+            if [ "$push_latest" = "true" ]; then echo "${base}/api:latest"; fi
+            echo "EOF"
+            echo "worker_tags<<EOF"
+            echo "${base}/worker:${tag}"
+            if [ "$push_latest" = "true" ]; then echo "${base}/worker:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build and push web image
         uses: docker/build-push-action@v6
@@ -91,9 +131,7 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          tags: |
-            ${{ steps.images.outputs.web }}
-            ${{ steps.images.outputs.web_latest }}
+          tags: ${{ steps.images.outputs.web_tags }}
           build-args: |
             NEXT_PUBLIC_API_BASE_URL=/api
 
@@ -103,9 +141,7 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
-          tags: |
-            ${{ steps.images.outputs.api }}
-            ${{ steps.images.outputs.api_latest }}
+          tags: ${{ steps.images.outputs.api_tags }}
 
       - name: Build and push worker image
         uses: docker/build-push-action@v6
@@ -113,6 +149,14 @@ jobs:
           context: .
           file: crates/worker/Dockerfile
           push: true
-          tags: |
-            ${{ steps.images.outputs.worker }}
-            ${{ steps.images.outputs.worker_latest }}
+          tags: ${{ steps.images.outputs.worker_tags }}
+
+  deploy:
+    name: Deploy Tagged Release
+    needs: publish-images
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      image_tag: ${{ needs.publish-images.outputs.image-tag }}
+      https_stage: ${{ needs.publish-images.outputs.https-stage }}
+    secrets: inherit

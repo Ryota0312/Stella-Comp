@@ -37,7 +37,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - Go/Rust 間の API 境界は `proto/` 配下の Protocol Buffers 定義を正とする。
 - 大きい画像データは gRPC メッセージ本体に載せず、ローカルパスまたは将来のオブジェクトストレージ URI を渡す。
 - Docker Compose では HTTPS Portal、nginx、Next.js、Go API、Rust worker、Valkey を起動する。HTTPS Portal で TLS 終端し、nginx は内部リバースプロキシとして `/` と `/api/` を振り分ける。Compose 環境では API と worker が共有 volume `/data` を同じ絶対パスとして使う。
-- GitHub Actions は image publish と VPS deploy を分ける。`.github/workflows/publish-images.yml` は `main` / `master` への push で検証と GHCR image publish を行う。PR merge も base branch への push として扱う。`.github/workflows/deploy.yml` は `workflow_dispatch` の手動実行のみで、VPS では `compose.deploy.yml` を使い、Actions が push した GHCR image を pull して起動する。
+- GitHub Actions は image publish と VPS deploy を分ける。`.github/workflows/publish-images.yml` は `main` / `master` への push で検証と GHCR image publish を行う。PR merge も base branch への push として扱う。`v1.0.0` のような正式 SemVer tag では同じ tag の GHCR image を publish して production deploy し、`v1.0.0-rc.1` のような SemVer prerelease tag では staging deploy する。`.github/workflows/deploy.yml` は reusable workflow と手動 rollback 用 `workflow_dispatch` を提供し、VPS では `compose.deploy.yml` を使い、Actions が push した GHCR image を pull して起動する。
 - Redis 互換キュー基盤は Valkey を標準候補にする。現時点のジョブ管理は Go API プロセス内メモリだが、API 複数 replica 化、再起動耐性、retry/cancel/timeout を入れる段階で job store と queue を Valkey へ移す。
 - 初期 VPS 運用は個人利用の検証を目的とし、preview 変換行列推定の並列数制限や待機キューは本番提供前の課題として扱う。本番提供前には VPS 実測に基づく resource sizing、Rust worker 同時実行数制限、待機 queue、upload size / 画像枚数 / timeout / retry / cancel 上限を設計する。詳細は `spec/deployment.md` を参照する。
 - 既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` Rust ライブラリを移植候補として扱う。
