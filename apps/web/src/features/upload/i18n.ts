@@ -12,10 +12,10 @@ export const uploadCopy = {
     languageName: "日本語",
     languageToggleLabel: "表示言語",
     hero: {
-      eyebrow: "Stella Comp",
-      title: "プレビュー取り込みワークスペース",
+      eyebrow: "星景写真の位置合わせ・コンポジット",
+      title: "Stella Comp",
       description:
-        "RAWまたは圧縮済みフレームを追加し、軽量プレビューで位置合わせを確認してから、必要に応じてブラウザでRAW現像合成を実行します。",
+        "短時間露光の星景フレームを揃えて重ね、ノイズを抑えた星空画像づくりを支援します。",
       statusLabel: "プロジェクトの状態",
       selected: "選択済み",
       frames: (count: number) => `${count} フレーム`,
@@ -183,10 +183,10 @@ export const uploadCopy = {
     languageName: "English",
     languageToggleLabel: "Display language",
     hero: {
-      eyebrow: "Stella Comp",
-      title: "Preview Ingest Workspace",
+      eyebrow: "Astrophoto alignment and compositing",
+      title: "Stella Comp",
       description:
-        "Drop RAW or compressed frames, verify alignment with lightweight previews, then run browser RAW development and stacking when needed.",
+        "Align short-exposure night-sky frames and composite them into a cleaner astrophoto.",
       statusLabel: "Project status",
       selected: "Selected",
       frames: (count: number) => `${count} frames`,

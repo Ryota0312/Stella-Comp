@@ -28,6 +28,7 @@ export function HeroMetrics({
       <div className="hero-copy">
         <p className="eyebrow">{copy.hero.eyebrow}</p>
         <h1>{copy.hero.title}</h1>
+        <p className="hero-description">{copy.hero.description}</p>
       </div>
       <div className="hero-side">
         <div className="language-switcher" aria-label={copy.languageToggleLabel}>

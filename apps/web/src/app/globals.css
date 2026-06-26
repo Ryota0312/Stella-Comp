@@ -72,9 +72,17 @@ button {
 
 .hero-copy h1 {
   margin: 0;
-  font-size: 1.34rem;
+  font-size: 1.62rem;
   line-height: 1.1;
   max-width: none;
+}
+
+.hero-description {
+  max-width: 40ch;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .hero-text {
@@ -215,6 +223,10 @@ button {
 .panel-preview,
 .panel-results {
   grid-column: 1;
+}
+
+.panel-upload-dragging {
+  border-color: var(--line-strong);
 }
 
 .panel-results {
@@ -900,9 +912,40 @@ button {
     min-height: 0;
   }
 
+  .workspace-step-preview .panel-results .result-stack,
+  .workspace-step-source .panel-results .result-stack {
+    position: absolute;
+    z-index: 3;
+    top: 72px;
+    right: 28px;
+    left: 28px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 0;
+    pointer-events: none;
+  }
+
+  .workspace-step-preview .panel-results .result-row,
+  .workspace-step-source .panel-results .result-row {
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius) - 2px);
+    background: rgba(5, 8, 12, 0.76);
+  }
+
   .workspace-step-preview .result-preview,
   .workspace-step-source .result-preview {
-    margin-bottom: 42px;
+    flex-basis: 80%;
+  }
+
+  .workspace-step-preview .result-actions,
+  .workspace-step-source .result-actions {
+    bottom: 12px;
+    left: 28px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(5, 8, 12, 0.76);
+    backdrop-filter: blur(12px);
   }
 }
 

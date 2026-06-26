@@ -58,7 +58,20 @@ export function UploadQueuePanel({
   }
 
   return (
-    <section className="panel panel-upload">
+    <section
+      className={`panel panel-upload${isDragging ? " panel-upload-dragging" : ""}`}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragOver={(event) => event.preventDefault()}
+      onDragLeave={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsDragging(false);
+        }
+      }}
+      onDrop={handleDrop}
+    >
       <header className="panel-header">
         <div>
           <p className="panel-kicker">{copy.upload.kicker}</p>
@@ -87,13 +100,6 @@ export function UploadQueuePanel({
         tabIndex={0}
         onClick={onSelectFrames}
         onKeyDown={handleDropzoneKeyDown}
-        onDragEnter={(event) => {
-          event.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
       >
         <p>{copy.upload.dropTitle}</p>
         <span>{copy.upload.dropDescription}</span>
