@@ -10,6 +10,7 @@ import type { ClientCompositeStatus } from "../types";
 import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
 
 type ViewMode = "composite" | "reference" | "sideBySide";
+type ResultPhase = "preview" | "source";
 
 type ImageSize = {
   width: number;
@@ -36,6 +37,7 @@ type ResultPanelProps = {
   downloadFileName: string | null;
   downloadUrl: string | null;
   language: Language;
+  phase: ResultPhase;
   resultLabel: string | null;
   previewUrl: string | null;
   referencePreviewUrl: string | null;
@@ -47,6 +49,7 @@ export function ResultPanel({
   downloadFileName,
   downloadUrl,
   language,
+  phase,
   resultLabel,
   previewUrl,
   referencePreviewUrl,
@@ -58,6 +61,7 @@ export function ResultPanel({
   const hasPreview = Boolean(previewUrl);
   const hasDownload = Boolean(downloadUrl);
   const hasReference = Boolean(referencePreviewUrl);
+  const isSourcePhase = phase === "source";
   const canInspect = Boolean(hasPreview && hasReference && compositeSize && referenceSize);
   const inspectorPosition = inspectPoint ? inspectorPositionForPoint(inspectPoint) : null;
 
@@ -135,22 +139,34 @@ export function ResultPanel({
           <p className="panel-kicker">{copy.result.kicker}</p>
           <h2>{copy.result.title}</h2>
         </div>
-        <div className="result-view-toggle" aria-label={copy.result.viewModeLabel}>
-          {modeOptions.map((option) => (
-            <button
-              type="button"
-              key={option.mode}
-              className={
-                viewMode === option.mode
-                  ? "result-view-option result-view-option-active"
-                  : "result-view-option"
-              }
-              disabled={!hasReference && option.mode !== "composite"}
-              onClick={() => setViewMode(option.mode)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="result-header-controls">
+          <div className="result-view-toggle" aria-label={copy.result.viewModeLabel}>
+            {modeOptions.map((option) => (
+              <button
+                type="button"
+                key={option.mode}
+                className={
+                  viewMode === option.mode
+                    ? "result-view-option result-view-option-active"
+                    : "result-view-option"
+                }
+                disabled={!hasReference && option.mode !== "composite"}
+                onClick={() => setViewMode(option.mode)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <ResultActions
+            compact={!isSourcePhase}
+            copy={copy}
+            downloadFileName={downloadFileName}
+            downloadUrl={downloadUrl}
+            hasDownload={hasDownload}
+            hasPreview={hasPreview}
+            previewUrl={previewUrl}
+            resultLabel={resultLabel}
+          />
         </div>
       </header>
       <div className="result-preview">
@@ -232,26 +248,49 @@ export function ResultPanel({
           <span>{clientCompositeStatusText(clientCompositeStatus, language)}</span>
         )}
       </div>
-      <div className="result-actions">
-        <a
-          className={`secondary-action link-action${hasPreview ? "" : " link-disabled"}`}
-          href={previewUrl ?? undefined}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!hasPreview}
-        >
-          {copy.result.openPreview}
-        </a>
-        <a
-          className={`primary-action link-action${hasDownload ? "" : " link-disabled"}`}
-          href={downloadUrl ?? undefined}
-          download={downloadFileName ?? undefined}
-          aria-disabled={!hasDownload}
-        >
-          {resultLabel === "tiff" ? copy.result.downloadTiff : copy.result.downloadOutput}
-        </a>
-      </div>
     </section>
+  );
+}
+
+function ResultActions({
+  compact = false,
+  copy,
+  downloadFileName,
+  downloadUrl,
+  hasDownload,
+  hasPreview,
+  previewUrl,
+  resultLabel,
+}: {
+  compact?: boolean;
+  copy: UploadCopy;
+  downloadFileName: string | null;
+  downloadUrl: string | null;
+  hasDownload: boolean;
+  hasPreview: boolean;
+  previewUrl: string | null;
+  resultLabel: string | null;
+}) {
+  return (
+    <div className={compact ? "result-actions result-actions-compact" : "result-actions"}>
+      <a
+        className={`secondary-action link-action${hasPreview ? "" : " link-disabled"}`}
+        href={previewUrl ?? undefined}
+        target="_blank"
+        rel="noreferrer"
+        aria-disabled={!hasPreview}
+      >
+        {copy.result.openPreview}
+      </a>
+      <a
+        className={`primary-action link-action${hasDownload ? "" : " link-disabled"}`}
+        href={downloadUrl ?? undefined}
+        download={downloadFileName ?? undefined}
+        aria-disabled={!hasDownload}
+      >
+        {resultLabel === "tiff" ? copy.result.downloadTiff : copy.result.downloadOutput}
+      </a>
+    </div>
   );
 }
 

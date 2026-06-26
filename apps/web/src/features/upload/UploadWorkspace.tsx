@@ -254,6 +254,25 @@ export function UploadWorkspace() {
               runRawComposite={runRawComposite}
               showRawAction={false}
               sourceBytes={sourceBytes}
+              stepActions={
+                <>
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    onClick={() => setCurrentStep("upload")}
+                  >
+                    {copy.steps.backToUpload}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    disabled={!canOpenSourceStep}
+                    onClick={handleStartSource}
+                  >
+                    {copy.steps.startSource}
+                  </button>
+                </>
+              }
               timeline={jobTimeline}
               uploadError={uploadError}
               uploadSummary={uploadSummary}
@@ -265,28 +284,11 @@ export function UploadWorkspace() {
               downloadFileName={resultDownloadFileName}
               downloadUrl={resultDownloadUrl}
               language={language}
+              phase="preview"
               resultLabel={resultLabel}
               previewUrl={resultPreviewUrl}
               referencePreviewUrl={referencePreviewUrl}
             />
-
-            <div className="step-actions">
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={() => setCurrentStep("upload")}
-              >
-                {copy.steps.backToUpload}
-              </button>
-              <button
-                type="button"
-                className="primary-action"
-                disabled={!canOpenSourceStep}
-                onClick={handleStartSource}
-              >
-                {copy.steps.startSource}
-              </button>
-            </div>
           </>
         ) : null}
 
@@ -311,6 +313,15 @@ export function UploadWorkspace() {
               runRawComposite={runRawComposite}
               showPreviewAction={false}
               sourceBytes={sourceBytes}
+              stepActions={
+                <button
+                  type="button"
+                  className="secondary-action"
+                  onClick={() => setCurrentStep("preview")}
+                >
+                  {copy.steps.backToPreview}
+                </button>
+              }
               timeline={jobTimeline}
               uploadError={uploadError}
               uploadSummary={uploadSummary}
@@ -322,20 +333,11 @@ export function UploadWorkspace() {
               downloadFileName={resultDownloadFileName}
               downloadUrl={resultDownloadUrl}
               language={language}
+              phase="source"
               resultLabel={resultLabel}
               previewUrl={resultPreviewUrl}
               referencePreviewUrl={referencePreviewUrl}
             />
-
-            <div className="step-actions">
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={() => setCurrentStep("preview")}
-              >
-                {copy.steps.backToPreview}
-              </button>
-            </div>
           </>
         ) : null}
       </section>

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type {
   ClientCompositeStatus,
   CompositeProgress,
@@ -30,6 +31,7 @@ type JobStatusPanelProps = {
   resultLabel: "png" | "tiff" | null;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
+  stepActions?: ReactNode;
   showPreviewAction?: boolean;
   showRawAction?: boolean;
   sourceBytes: number;
@@ -55,6 +57,7 @@ export function JobStatusPanel({
   resultLabel,
   runComposite,
   runRawComposite,
+  stepActions,
   showPreviewAction = true,
   showRawAction = true,
   sourceBytes,
@@ -191,6 +194,7 @@ export function JobStatusPanel({
           ) : null}
         </div>
       ) : null}
+      {stepActions ? <div className="job-step-actions">{stepActions}</div> : null}
     </section>
   );
 }
