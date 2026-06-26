@@ -45,17 +45,22 @@ export function useCompositeJob({
   const [clientWarnings, setClientWarnings] = useState<ProcessingWarning[]>([]);
   const [rawCompositeProgress, setRawCompositeProgress] = useState<CompositeProgress | null>(null);
   const [resultPreviewUrl, setResultPreviewUrl] = useState<string | null>(null);
+  const [resultReferencePreviewUrl, setResultReferencePreviewUrl] = useState<string | null>(null);
   const [resultDownloadUrl, setResultDownloadUrl] = useState<string | null>(null);
   const [resultDownloadFileName, setResultDownloadFileName] = useState<string | null>(null);
   const [resultLabel, setResultLabel] = useState<CompositeOutput["label"] | null>(null);
   const [lastAlignment, setLastAlignment] = useState<PreviewAlignmentSummary | null>(null);
   const resultPreviewUrlRef = useRef<string | null>(null);
+  const resultReferencePreviewUrlRef = useRef<string | null>(null);
   const resultDownloadUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
       if (resultPreviewUrlRef.current) {
         URL.revokeObjectURL(resultPreviewUrlRef.current);
+      }
+      if (resultReferencePreviewUrlRef.current) {
+        URL.revokeObjectURL(resultReferencePreviewUrlRef.current);
       }
       if (resultDownloadUrlRef.current) {
         URL.revokeObjectURL(resultDownloadUrlRef.current);
@@ -77,11 +82,16 @@ export function useCompositeJob({
       URL.revokeObjectURL(resultPreviewUrlRef.current);
       resultPreviewUrlRef.current = null;
     }
+    if (resultReferencePreviewUrlRef.current) {
+      URL.revokeObjectURL(resultReferencePreviewUrlRef.current);
+      resultReferencePreviewUrlRef.current = null;
+    }
     if (resultDownloadUrlRef.current) {
       URL.revokeObjectURL(resultDownloadUrlRef.current);
       resultDownloadUrlRef.current = null;
     }
     setResultPreviewUrl(null);
+    setResultReferencePreviewUrl(null);
     setResultDownloadUrl(null);
     setResultDownloadFileName(null);
     setResultLabel(null);
@@ -103,14 +113,22 @@ export function useCompositeJob({
     if (resultPreviewUrlRef.current) {
       URL.revokeObjectURL(resultPreviewUrlRef.current);
     }
+    if (resultReferencePreviewUrlRef.current) {
+      URL.revokeObjectURL(resultReferencePreviewUrlRef.current);
+    }
     if (resultDownloadUrlRef.current) {
       URL.revokeObjectURL(resultDownloadUrlRef.current);
     }
     const nextPreviewUrl = URL.createObjectURL(output.previewBlob);
+    const nextReferencePreviewUrl = output.referencePreviewBlob
+      ? URL.createObjectURL(output.referencePreviewBlob)
+      : null;
     const nextDownloadUrl = URL.createObjectURL(output.downloadBlob);
     resultPreviewUrlRef.current = nextPreviewUrl;
+    resultReferencePreviewUrlRef.current = nextReferencePreviewUrl;
     resultDownloadUrlRef.current = nextDownloadUrl;
     setResultPreviewUrl(nextPreviewUrl);
+    setResultReferencePreviewUrl(nextReferencePreviewUrl);
     setResultDownloadUrl(nextDownloadUrl);
     setResultDownloadFileName(output.downloadFileName);
     setResultLabel(output.label);
@@ -245,6 +263,7 @@ export function useCompositeJob({
     resultDownloadFileName,
     resultDownloadUrl,
     resultLabel,
+    resultReferencePreviewUrl,
     resultPreviewUrl,
     runComposite,
     runRawComposite,

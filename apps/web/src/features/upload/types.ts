@@ -77,6 +77,7 @@ export type WorkspaceStep = "upload" | "preview" | "source";
 
 export type CompositeOutput = {
   previewBlob: Blob;
+  referencePreviewBlob?: Blob;
   downloadBlob: Blob;
   downloadFileName: string;
   label: "png" | "tiff";

@@ -99,6 +99,7 @@ export async function stackPreviewImages({
 
   return {
     previewBlob: blob,
+    referencePreviewBlob: orderedItems[baseImageIndex].previewBlob,
     downloadBlob: blob,
     downloadFileName: "stella-comp-preview-stack.png",
     label: "png",

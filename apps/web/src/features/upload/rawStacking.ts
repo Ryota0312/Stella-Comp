@@ -65,6 +65,7 @@ export async function stackSourceImages({
   const blue = new Float32Array(pixelCount);
   const counts = new Uint16Array(pixelCount);
   const transformsByIndex = new Map(transforms.map((transform) => [transform.imageIndex, transform]));
+  let referencePreviewBlob: Blob | null = null;
 
   for (const [index, item] of orderedItems.entries()) {
     reportProgress(item.name);
@@ -100,6 +101,10 @@ export async function stackSourceImages({
     );
     sampleContext.drawImage(source.image, 0, 0);
     source.close();
+
+    if (index === baseImageIndex) {
+      referencePreviewBlob = await canvasToPngBlob(sampleCanvas, "RAW reference preview PNG export failed");
+    }
 
     const { data } = sampleContext.getImageData(0, 0, width, height);
     for (let pixel = 0, offset = 0; pixel < pixelCount; pixel += 1, offset += 4) {
@@ -144,10 +149,22 @@ export async function stackSourceImages({
   reportProgress("TIFF");
   return {
     previewBlob: blob,
+    referencePreviewBlob: referencePreviewBlob ?? undefined,
     downloadBlob: tiffBlob,
     downloadFileName: "stella-comp-source-stack.tiff",
     label: "tiff",
   };
+}
+
+async function canvasToPngBlob(canvas: HTMLCanvasElement, errorMessage: string) {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/png");
+  });
+  if (!blob) {
+    throw new Error(errorMessage);
+  }
+
+  return blob;
 }
 
 function previewAffineToSourceAffine(

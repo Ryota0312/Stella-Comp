@@ -102,6 +102,7 @@ export function UploadWorkspace() {
     resultDownloadUrl,
     resultLabel,
     resultPreviewUrl,
+    resultReferencePreviewUrl,
     runComposite,
     runRawComposite,
   } = useCompositeJob({
@@ -118,7 +119,7 @@ export function UploadWorkspace() {
 
   const canStartPreview = canRunJob && !isJobBusy;
   const canOpenSourceStep = clientCompositeStatus === "completed" && Boolean(resultPreviewUrl);
-  const referencePreviewUrl = activeItem?.previewUrl ?? null;
+  const referencePreviewUrl = resultReferencePreviewUrl ?? activeItem?.previewUrl ?? null;
 
   const jobTimeline = useMemo<TimelineItem[]>(
     () =>
