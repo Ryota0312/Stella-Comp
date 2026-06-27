@@ -97,6 +97,8 @@ export const uploadCopy = {
       openPreview: "プレビューを開く",
       downloadOutput: "結果をダウンロード",
       downloadTiff: "TIFFをダウンロード",
+      processingPreviewDetail: "結果を生成しています。完了するとこの領域に表示されます。",
+      processingSourceDetail: "本画像の成果物を生成しています。前回のプレビューは参考表示です。",
     },
     timeline: {
       selectedFrames: "選択フレーム",
@@ -284,6 +286,9 @@ export const uploadCopy = {
       openPreview: "Open Preview",
       downloadOutput: "Download Output",
       downloadTiff: "Download TIFF",
+      processingPreviewDetail: "Generating the result. It will appear here when complete.",
+      processingSourceDetail:
+        "Generating the source output. The previous preview remains visible for reference.",
     },
     timeline: {
       selectedFrames: "Selected frames",

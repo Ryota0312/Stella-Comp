@@ -288,6 +288,8 @@ export function UploadWorkspace() {
               phase="preview"
               resultLabel={resultLabel}
               previewUrl={resultPreviewUrl}
+              rawCompositeProgress={rawCompositeProgress}
+              rawCompositeStatus={rawCompositeStatus}
               referencePreviewUrl={referencePreviewUrl}
             />
           </>
@@ -337,6 +339,8 @@ export function UploadWorkspace() {
               phase="source"
               resultLabel={resultLabel}
               previewUrl={resultPreviewUrl}
+              rawCompositeProgress={rawCompositeProgress}
+              rawCompositeStatus={rawCompositeStatus}
               referencePreviewUrl={referencePreviewUrl}
             />
           </>

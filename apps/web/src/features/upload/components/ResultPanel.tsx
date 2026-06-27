@@ -6,8 +6,13 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
-import type { ClientCompositeStatus } from "../types";
-import { clientCompositeStatusText, type Language, type UploadCopy } from "../i18n";
+import type { ClientCompositeStatus, CompositeProgress, RawCompositeStatus } from "../types";
+import {
+  clientCompositeStatusText,
+  rawCompositeStatusText,
+  type Language,
+  type UploadCopy,
+} from "../i18n";
 
 type ViewMode = "composite" | "reference" | "sideBySide";
 type ResultPhase = "preview" | "source";
@@ -40,6 +45,8 @@ type ResultPanelProps = {
   phase: ResultPhase;
   resultLabel: string | null;
   previewUrl: string | null;
+  rawCompositeProgress: CompositeProgress | null;
+  rawCompositeStatus: RawCompositeStatus;
   referencePreviewUrl: string | null;
 };
 
@@ -52,6 +59,8 @@ export function ResultPanel({
   phase,
   resultLabel,
   previewUrl,
+  rawCompositeProgress,
+  rawCompositeStatus,
   referencePreviewUrl,
 }: ResultPanelProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("composite");
@@ -64,6 +73,14 @@ export function ResultPanel({
   const isSourcePhase = phase === "source";
   const canInspect = Boolean(hasPreview && hasReference && compositeSize && referenceSize);
   const inspectorPosition = inspectPoint ? inspectorPositionForPoint(inspectPoint) : null;
+  const processingOverlay = processingOverlayForState({
+    clientCompositeStatus,
+    copy,
+    language,
+    phase,
+    rawCompositeProgress,
+    rawCompositeStatus,
+  });
 
   useEffect(() => {
     if (!hasReference && viewMode !== "composite") {
@@ -172,7 +189,9 @@ export function ResultPanel({
       <div className="result-preview">
         {previewUrl ? (
           <div
-            className={`result-viewer result-viewer-${viewMode}`}
+            className={`result-viewer result-viewer-${viewMode}${
+              processingOverlay ? " result-viewer-processing" : ""
+            }`}
             onPointerLeave={() => setInspectPoint(null)}
           >
             {viewMode === "reference" ? (
@@ -247,8 +266,96 @@ export function ResultPanel({
         ) : (
           <span>{clientCompositeStatusText(clientCompositeStatus, language)}</span>
         )}
+        {processingOverlay ? <ProcessingOverlay overlay={processingOverlay} /> : null}
       </div>
     </section>
+  );
+}
+
+type ProcessingOverlayState = {
+  detail: string | null;
+  progress: CompositeProgress | null;
+  title: string;
+};
+
+function processingOverlayForState({
+  clientCompositeStatus,
+  copy,
+  language,
+  phase,
+  rawCompositeProgress,
+  rawCompositeStatus,
+}: {
+  clientCompositeStatus: ClientCompositeStatus;
+  copy: UploadCopy;
+  language: Language;
+  phase: ResultPhase;
+  rawCompositeProgress: CompositeProgress | null;
+  rawCompositeStatus: RawCompositeStatus;
+}): ProcessingOverlayState | null {
+  if (
+    phase === "preview" &&
+    (clientCompositeStatus === "uploading" ||
+      clientCompositeStatus === "estimating" ||
+      clientCompositeStatus === "stacking")
+  ) {
+    return {
+      detail: copy.result.processingPreviewDetail,
+      progress: null,
+      title: clientCompositeStatusText(clientCompositeStatus, language),
+    };
+  }
+
+  if (
+    phase === "source" &&
+    (rawCompositeStatus === "developing" || rawCompositeStatus === "stacking")
+  ) {
+    return {
+      detail: rawCompositeProgress?.label ?? copy.result.processingSourceDetail,
+      progress: rawCompositeProgress,
+      title: rawCompositeStatusText(rawCompositeStatus, language),
+    };
+  }
+
+  return null;
+}
+
+function ProcessingOverlay({ overlay }: { overlay: ProcessingOverlayState }) {
+  const progressPercent = overlay.progress
+    ? Math.min((overlay.progress.current / Math.max(overlay.progress.total, 1)) * 100, 100)
+    : null;
+
+  return (
+    <div className="result-processing-overlay" aria-live="polite" aria-busy="true">
+      <div className="result-processing-card">
+        <div className="result-processing-spinner" aria-hidden="true" />
+        <div className="result-processing-copy">
+          <strong>{overlay.title}</strong>
+          {overlay.detail ? <span>{overlay.detail}</span> : null}
+        </div>
+        {overlay.progress ? (
+          <div
+            className="result-processing-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={overlay.progress.total}
+            aria-valuenow={overlay.progress.current}
+          >
+            <div className="result-processing-progress-header">
+              <span>
+                {overlay.progress.current} / {overlay.progress.total}
+              </span>
+            </div>
+            <div className="result-processing-progress-bar" aria-hidden="true">
+              <div
+                className="result-processing-progress-value"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
