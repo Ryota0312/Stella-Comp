@@ -13,9 +13,9 @@
   --accent: #31d4c5;
   --accent-strong: #7df8eb;
   --accent-soft: rgba(49, 212, 197, 0.16);
-  --action-next: #5b8cff;
-  --action-next-strong: #a9c2ff;
-  --action-next-soft: rgba(91, 140, 255, 0.18);
+  --action-next: #75a3ff;
+  --action-next-strong: #c7d8ff;
+  --action-next-soft: rgba(117, 163, 255, 0.2);
   --action-download: #46d98b;
   --action-download-strong: #9af2c4;
   --action-download-soft: rgba(70, 217, 139, 0.16);
@@ -287,9 +287,9 @@ button {
 }
 
 .primary-action {
-  color: #04110f;
-  background: var(--accent);
-  border-color: rgba(125, 248, 235, 0.28);
+  color: var(--accent-strong);
+  background: rgba(49, 212, 197, 0.045);
+  border-color: rgba(125, 248, 235, 0.22);
 }
 
 .secondary-action {
@@ -299,10 +299,22 @@ button {
 }
 
 .step-forward-action {
+  min-height: 46px;
+  padding: 0.86rem 1.34rem;
   color: #071126;
   background: var(--action-next);
-  border-color: rgba(169, 194, 255, 0.38);
-  box-shadow: 0 0 0 1px rgba(169, 194, 255, 0.12), 0 12px 30px rgba(91, 140, 255, 0.18);
+  border-color: rgba(199, 216, 255, 0.5);
+  font-weight: 800;
+  box-shadow: 0 0 0 1px rgba(199, 216, 255, 0.18), 0 16px 38px rgba(117, 163, 255, 0.26);
+}
+
+.step-forward-action:disabled,
+.step-forward-action.link-disabled {
+  opacity: 0.74;
+  color: var(--action-next-strong);
+  background: rgba(117, 163, 255, 0.16);
+  border-color: rgba(199, 216, 255, 0.34);
+  box-shadow: 0 0 0 1px rgba(199, 216, 255, 0.12);
 }
 
 .step-back-action {
@@ -321,6 +333,10 @@ button {
 .primary-action:hover,
 .secondary-action:hover {
   transform: translateY(-1px);
+}
+
+.step-forward-action:hover {
+  box-shadow: 0 0 0 1px rgba(199, 216, 255, 0.24), 0 18px 44px rgba(117, 163, 255, 0.32);
 }
 
 .action-row {
