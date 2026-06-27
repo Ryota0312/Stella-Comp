@@ -145,10 +145,11 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       }
 
       const nextItems = Array.from(fileList).map(createQueueItem);
+      const initialActiveId = nextItems[Math.floor(nextItems.length / 2)]?.id ?? null;
 
       startTransition(() => {
         setItems((current) => [...current, ...nextItems]);
-        setActiveId((current) => current ?? nextItems[0]?.id ?? null);
+        setActiveId((current) => current ?? initialActiveId);
         onQueueChanged();
       });
 

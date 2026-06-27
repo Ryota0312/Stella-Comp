@@ -6,7 +6,6 @@ import {
   type UploadCopy,
 } from "../i18n";
 import type { QueueItem } from "../types";
-import { formatBytes } from "../utils";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
@@ -131,7 +130,7 @@ export function UploadQueuePanel({
         {items.length === 0 ? (
           <div className="empty-state">{copy.upload.empty}</div>
         ) : (
-          items.map((item) => (
+          items.map((item, index) => (
             <button
               type="button"
               className={`table-row table-button${activeItem?.id === item.id ? " table-row-active" : ""}`}
@@ -140,25 +139,18 @@ export function UploadQueuePanel({
               onClick={() => setActiveId(item.id)}
             >
               <div className="row-main">
-                {item.previewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img className="queue-thumb" src={item.previewUrl} alt="" />
-                ) : (
-                  <span className="queue-thumb queue-thumb-empty">{item.extension}</span>
-                )}
+                <span className="queue-index">{index + 1}</span>
                 <div>
                   <p className="row-title">{item.name}</p>
-                  <span className="row-meta">
-                    {formatBytes(item.sourceSize)}
-                    {item.previewSize ? `${copy.upload.sizeArrow}${formatBytes(item.previewSize)}` : ""}
-                  </span>
                 </div>
               </div>
               <div className="row-state">
                 <span className={`pill pill-${item.status}`}>
                   {queueStatusText(item.status, language)}
                 </span>
-                <span className="row-meta">{queueNoteText(item.note, language)}</span>
+                {shouldShowQueueNote(item) ? (
+                  <span className="row-meta">{queueNoteText(item.note, language)}</span>
+                ) : null}
               </div>
             </button>
           ))
@@ -166,4 +158,8 @@ export function UploadQueuePanel({
       </div>
     </section>
   );
+}
+
+function shouldShowQueueNote(item: QueueItem) {
+  return !["queued", "ready", "uploading", "uploaded"].includes(item.status);
 }

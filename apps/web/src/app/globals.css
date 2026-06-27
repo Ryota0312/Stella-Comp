@@ -410,7 +410,7 @@ button {
 .timeline,
 .result-stack {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -427,7 +427,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 9px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -447,14 +447,14 @@ button {
 
 .row-main {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
 }
 
 .row-title {
-  margin: 0 0 3px;
+  margin: 0;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
@@ -462,7 +462,7 @@ button {
 .row-state {
   display: grid;
   justify-items: end;
-  gap: 5px;
+  gap: 4px;
 }
 
 .pill {
@@ -499,22 +499,17 @@ button {
   background: var(--danger-soft);
 }
 
-.queue-thumb {
-  width: 50px;
-  aspect-ratio: 1;
+.queue-index {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  object-fit: cover;
   background: rgba(49, 212, 197, 0.08);
-}
-
-.queue-thumb-empty {
-  display: grid;
-  place-items: center;
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 800;
-  text-transform: uppercase;
 }
 
 .settings-grid {
