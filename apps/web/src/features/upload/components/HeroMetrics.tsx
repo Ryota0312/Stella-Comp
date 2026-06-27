@@ -31,18 +31,20 @@ export function HeroMetrics({
         <p className="hero-description">{copy.hero.description}</p>
       </div>
       <div className="hero-side">
-        <div className="language-switcher" aria-label={copy.languageToggleLabel}>
-          {languages.map((option) => (
-            <button
-              type="button"
-              className={`language-option${language === option ? " language-option-active" : ""}`}
-              key={option}
-              onClick={() => setLanguage(option)}
-            >
-              {uploadLanguageName(option)}
-            </button>
-          ))}
-        </div>
+        <label className="language-switcher">
+          <span className="visually-hidden">{copy.languageToggleLabel}</span>
+          <select
+            aria-label={copy.languageToggleLabel}
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as Language)}
+          >
+            {languages.map((option) => (
+              <option key={option} value={option}>
+                {uploadLanguageName(option)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="stepper" aria-label={copy.steps.current}>
         {workspaceSteps.map((step, index) => (
