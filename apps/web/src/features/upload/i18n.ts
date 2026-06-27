@@ -73,6 +73,16 @@ export const uploadCopy = {
       runRawStack: "RAW現像して合成",
       previewPayload: "プレビュー容量",
       rawProgressLabel: "本画像処理の進捗",
+      outputFormat: "書き出し形式",
+      outputDisplay: "表示",
+      outputExport: "書き出し",
+      outputDisplayPng: "PNG",
+      outputFormatNote: "結果表示と等倍確認はPNGで行います。",
+      outputFormats: {
+        tiff: "TIFF（16bit・後処理向け）",
+        png: "PNG（劣化なし・8bit）",
+        jpeg: "JPEG（軽量・共有向け）",
+      },
       uploadedSummary: (count: number, bytes: string) =>
         `${count} 件のプレビューファイルをアップロードしました（${bytes}）。`,
       warningsLabel: "位置合わせ警告",
@@ -92,6 +102,7 @@ export const uploadCopy = {
       openPreview: "プレビューを開く",
       downloadOutput: "結果をダウンロード",
       downloadTiff: "TIFFをダウンロード",
+      downloadFormat: (format: string) => `${format}をダウンロード`,
       processingPreviewDetail: "結果を生成しています。完了するとこの領域に表示されます。",
       processingSourceDetail: "本画像の成果物を生成しています。前回のプレビューは参考表示です。",
     },
@@ -109,6 +120,7 @@ export const uploadCopy = {
       rawStack: "RAW合成",
       sourceOutput: "本処理成果物",
       tiffReady: "TIFF書き出し可能",
+      outputReady: (format: string) => `${format}書き出し可能`,
       waiting: "待機中",
     },
     resultRows: {
@@ -257,6 +269,16 @@ export const uploadCopy = {
       runRawStack: "Develop RAW and Stack",
       previewPayload: "Preview payload",
       rawProgressLabel: "Source image progress",
+      outputFormat: "Export format",
+      outputDisplay: "Display",
+      outputExport: "Export",
+      outputDisplayPng: "PNG",
+      outputFormatNote: "Result display and pixel checks use PNG.",
+      outputFormats: {
+        tiff: "TIFF (16-bit, editing)",
+        png: "PNG (lossless, 8-bit)",
+        jpeg: "JPEG (small, sharing)",
+      },
       uploadedSummary: (count: number, bytes: string) =>
         `Uploaded ${count} preview files (${bytes}).`,
       warningsLabel: "Alignment warnings",
@@ -276,6 +298,7 @@ export const uploadCopy = {
       openPreview: "Open Preview",
       downloadOutput: "Download Output",
       downloadTiff: "Download TIFF",
+      downloadFormat: (format: string) => `Download ${format}`,
       processingPreviewDetail: "Generating the result. It will appear here when complete.",
       processingSourceDetail:
         "Generating the source output. The previous preview remains visible for reference.",
@@ -294,6 +317,7 @@ export const uploadCopy = {
       rawStack: "RAW stack",
       sourceOutput: "Source output",
       tiffReady: "TIFF ready",
+      outputReady: (format: string) => `${format} ready`,
       waiting: "Waiting",
     },
     resultRows: {

@@ -8,6 +8,7 @@ import type {
   CompositeOutput,
   QueueItem,
   RawCompositeStatus,
+  SourceExportFormat,
 } from "../types";
 import {
   estimatePreviewAlignments,
@@ -23,6 +24,7 @@ type UseCompositeJobOptions = {
   canRunJob: boolean;
   copy: UploadCopy;
   items: QueueItem[];
+  sourceExportFormat: SourceExportFormat;
   uploadPreviews: () => Promise<PreviewUploadSummary | null>;
   uploadSummary: PreviewUploadSummary | null;
   uploadedItemIdsRef: RefObject<string[]>;
@@ -33,6 +35,7 @@ export function useCompositeJob({
   canRunJob,
   copy,
   items,
+  sourceExportFormat,
   uploadPreviews,
   uploadSummary,
   uploadedItemIdsRef,
@@ -222,6 +225,7 @@ export function useCompositeJob({
 
       setRawCompositeStatus("developing");
       const result = await stackSourceImages({
+        exportFormat: sourceExportFormat,
         items,
         itemIds: uploadedItemIdsRef.current,
         onProgress: setRawCompositeProgress,
@@ -246,6 +250,7 @@ export function useCompositeJob({
     items,
     lastAlignment,
     publishResult,
+    sourceExportFormat,
     uploadPreviews,
     uploadSummary,
     uploadedItemIdsRef,

@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import type {
   ClientCompositeStatus,
   CompositeProgress,
   RawCompositeStatus,
+  SourceExportFormat,
   TimelineItem,
 } from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
@@ -28,13 +29,16 @@ type JobStatusPanelProps = {
   previewBytes: number;
   rawCompositeProgress: CompositeProgress | null;
   rawCompositeStatus: RawCompositeStatus;
-  resultLabel: "png" | "tiff" | null;
+  resultLabel: SourceExportFormat | null;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
+  setSourceExportFormat?: (format: SourceExportFormat) => void;
   stepActions?: ReactNode;
   showPreviewAction?: boolean;
   showRawAction?: boolean;
+  showSourceExportFormat?: boolean;
   sourceBytes: number;
+  sourceExportFormat?: SourceExportFormat;
   timeline: TimelineItem[];
   uploadError: string | null;
   uploadSummary: PreviewUploadSummary | null;
@@ -57,10 +61,13 @@ export function JobStatusPanel({
   resultLabel,
   runComposite,
   runRawComposite,
+  setSourceExportFormat,
   stepActions,
   showPreviewAction = true,
   showRawAction = true,
+  showSourceExportFormat = false,
   sourceBytes,
+  sourceExportFormat = "tiff",
   timeline,
   uploadError,
   uploadSummary,
@@ -116,6 +123,29 @@ export function JobStatusPanel({
           </div>
         ))}
       </div>
+      {showSourceExportFormat ? (
+        <div className="source-export-control">
+          <label className="field">
+            <span>{copy.execution.outputFormat}</span>
+            <select
+              value={sourceExportFormat}
+              disabled={isJobBusy || !setSourceExportFormat}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                setSourceExportFormat?.(event.currentTarget.value as SourceExportFormat)
+              }
+            >
+              <option value="tiff">{copy.execution.outputFormats.tiff}</option>
+              <option value="png">{copy.execution.outputFormats.png}</option>
+              <option value="jpeg">{copy.execution.outputFormats.jpeg}</option>
+            </select>
+          </label>
+          <p className="source-export-note">
+            {copy.execution.outputDisplay}: {copy.execution.outputDisplayPng} /{" "}
+            {copy.execution.outputExport}: {formatLabel(sourceExportFormat)}
+          </p>
+          <p className="source-export-note">{copy.execution.outputFormatNote}</p>
+        </div>
+      ) : null}
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
       {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
@@ -197,4 +227,8 @@ export function JobStatusPanel({
       {stepActions ? <div className="job-step-actions">{stepActions}</div> : null}
     </section>
   );
+}
+
+function formatLabel(format: SourceExportFormat) {
+  return format === "jpeg" ? "JPEG" : format.toUpperCase();
 }

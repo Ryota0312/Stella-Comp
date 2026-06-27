@@ -1,7 +1,7 @@
 import { rawExtensions } from "./constants";
 import { developRawWithLibRaw } from "./previewGeneration";
 import { encodeTiffRgb16 } from "./tiffEncoding";
-import type { CompositeOutput, QueueItem } from "./types";
+import type { CompositeOutput, QueueItem, SourceExportFormat } from "./types";
 import type { ImageTransform } from "./uploadApi";
 
 type StackSourceOptions = {
@@ -9,6 +9,7 @@ type StackSourceOptions = {
   itemIds: string[];
   transforms: ImageTransform[];
   baseImageIndex: number;
+  exportFormat: SourceExportFormat;
   onProgress?: (progress: { current: number; total: number; label: string }) => void;
 };
 
@@ -20,6 +21,7 @@ type LoadedSourceImage = {
 };
 
 export async function stackSourceImages({
+  exportFormat,
   items,
   itemIds,
   onProgress,
@@ -120,8 +122,8 @@ export async function stackSourceImages({
     reportProgress(item.name);
   }
 
-  reportProgress("TIFF");
-  const tiffBlob = encodeTiffRgb16({ width, height, red, green, blue, counts });
+  const outputLabel = outputLabelForFormat(exportFormat);
+  reportProgress(outputLabel);
   const output = sampleContext.createImageData(width, height);
   for (let pixel = 0, offset = 0; pixel < pixelCount; pixel += 1, offset += 4) {
     const count = counts[pixel];
@@ -138,21 +140,27 @@ export async function stackSourceImages({
   sampleContext.setTransform(1, 0, 0, 1, 0, 0);
   sampleContext.putImageData(output, 0, 0);
 
-  const blob = await new Promise<Blob | null>((resolve) => {
-    sampleCanvas.toBlob(resolve, "image/png");
+  const previewBlob = await canvasToPngBlob(sampleCanvas, "RAW composite preview PNG export failed");
+  const downloadBlob = await exportDownloadBlob({
+    canvas: sampleCanvas,
+    counts,
+    exportFormat,
+    height,
+    red,
+    green,
+    blue,
+    previewBlob,
+    width,
   });
-  if (!blob) {
-    throw new Error("RAW composite preview PNG export failed");
-  }
 
   completedProgress += 1;
-  reportProgress("TIFF");
+  reportProgress(outputLabel);
   return {
-    previewBlob: blob,
+    previewBlob,
     referencePreviewBlob: referencePreviewBlob ?? undefined,
-    downloadBlob: tiffBlob,
-    downloadFileName: "stella-comp-source-stack.tiff",
-    label: "tiff",
+    downloadBlob,
+    downloadFileName: downloadFileNameForFormat(exportFormat),
+    label: exportFormat,
   };
 }
 
@@ -165,6 +173,70 @@ async function canvasToPngBlob(canvas: HTMLCanvasElement, errorMessage: string) 
   }
 
   return blob;
+}
+
+async function canvasToJpegBlob(canvas: HTMLCanvasElement, errorMessage: string) {
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.92);
+  });
+  if (!blob) {
+    throw new Error(errorMessage);
+  }
+
+  return blob;
+}
+
+async function exportDownloadBlob({
+  canvas,
+  counts,
+  exportFormat,
+  height,
+  previewBlob,
+  red,
+  green,
+  blue,
+  width,
+}: {
+  canvas: HTMLCanvasElement;
+  counts: Uint16Array;
+  exportFormat: SourceExportFormat;
+  height: number;
+  previewBlob: Blob;
+  red: Float32Array;
+  green: Float32Array;
+  blue: Float32Array;
+  width: number;
+}) {
+  if (exportFormat === "tiff") {
+    return encodeTiffRgb16({ width, height, red, green, blue, counts });
+  }
+  if (exportFormat === "jpeg") {
+    return canvasToJpegBlob(canvas, "RAW composite JPEG export failed");
+  }
+
+  return previewBlob;
+}
+
+function downloadFileNameForFormat(exportFormat: SourceExportFormat) {
+  switch (exportFormat) {
+    case "jpeg":
+      return "stella-comp-source-stack.jpg";
+    case "png":
+      return "stella-comp-source-stack.png";
+    case "tiff":
+      return "stella-comp-source-stack.tiff";
+  }
+}
+
+function outputLabelForFormat(exportFormat: SourceExportFormat) {
+  switch (exportFormat) {
+    case "jpeg":
+      return "JPEG";
+    case "png":
+      return "PNG";
+    case "tiff":
+      return "TIFF";
+  }
 }
 
 function previewAffineToSourceAffine(

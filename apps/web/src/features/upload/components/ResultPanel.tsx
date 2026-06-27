@@ -6,7 +6,12 @@ import {
   type CSSProperties,
   type PointerEvent,
 } from "react";
-import type { ClientCompositeStatus, CompositeProgress, RawCompositeStatus } from "../types";
+import type {
+  ClientCompositeStatus,
+  CompositeProgress,
+  RawCompositeStatus,
+  SourceExportFormat,
+} from "../types";
 import {
   clientCompositeStatusText,
   rawCompositeStatusText,
@@ -43,7 +48,7 @@ type ResultPanelProps = {
   downloadUrl: string | null;
   language: Language;
   phase: ResultPhase;
-  resultLabel: string | null;
+  resultLabel: SourceExportFormat | null;
   previewUrl: string | null;
   rawCompositeProgress: CompositeProgress | null;
   rawCompositeStatus: RawCompositeStatus;
@@ -376,7 +381,7 @@ function ResultActions({
   hasDownload: boolean;
   hasPreview: boolean;
   previewUrl: string | null;
-  resultLabel: string | null;
+  resultLabel: SourceExportFormat | null;
 }) {
   return (
     <div className={compact ? "result-actions result-actions-compact" : "result-actions"}>
@@ -395,10 +400,14 @@ function ResultActions({
         download={downloadFileName ?? undefined}
         aria-disabled={!hasDownload}
       >
-        {resultLabel === "tiff" ? copy.result.downloadTiff : copy.result.downloadOutput}
+        {resultLabel ? copy.result.downloadFormat(formatLabel(resultLabel)) : copy.result.downloadOutput}
       </a>
     </div>
   );
+}
+
+function formatLabel(format: SourceExportFormat) {
+  return format === "jpeg" ? "JPEG" : format.toUpperCase();
 }
 
 function ImageFrame({

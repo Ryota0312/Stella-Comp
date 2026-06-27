@@ -247,7 +247,7 @@ mise exec -- cargo check
 - CR2 など埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
 - 現在の Web UI は、アップロード済み preview JPEG を `/api/preview-alignments` の非同期ジョブ経由で Rust worker に渡し、完了後に返却された変換行列でブラウザ側プレビュー合成を実行します。
-- preview 合成確認後、`RAW現像して合成` で `libraw-wasm` によるブラウザ側 RAW 現像、preview 座標系から元画像座標系への変換行列補正、元画像ベースの加算平均合成を試します。画面表示用には PNG preview を生成し、Lightroom などで後処理する本処理成果物は TIFF としてダウンロードします。
+- preview 合成確認後、`RAW現像して合成` で `libraw-wasm` によるブラウザ側 RAW 現像、preview 座標系から元画像座標系への変換行列補正、元画像ベースの加算平均合成を試します。画面表示と等倍確認には PNG preview を生成し、本処理成果物はプレビュー合成後の画面で TIFF / PNG / JPEG から選んでダウンロードします。TIFF は後処理向け、PNG は劣化なしの 8bit 出力、JPEG はスマホ保存・共有向けの軽量出力として扱います。
 - `/api/jobs` はサーバー側 preview JPEG 合成の比較・フォールバック用として残しています。
 - RAW 現像結果と埋め込み preview の crop/orientation 差分補正、真の 16bit/linear 合成、メモリ削減は後続で拡張します。
 

@@ -17,7 +17,7 @@ import {
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { TimelineItem, WorkspaceStep } from "./types";
+import type { SourceExportFormat, TimelineItem, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
 const debugEnabled =
@@ -34,6 +34,7 @@ export function UploadWorkspace() {
     return languages.includes(storedLanguage as Language) ? (storedLanguage as Language) : defaultLanguage;
   });
   const [currentStep, setCurrentStep] = useState<WorkspaceStep>("upload");
+  const [sourceExportFormat, setSourceExportFormat] = useState<SourceExportFormat>("tiff");
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
   const clearJobStateRef = useRef<(preserveStarting?: boolean) => void>(() => undefined);
@@ -110,6 +111,7 @@ export function UploadWorkspace() {
     canRunJob,
     copy,
     items,
+    sourceExportFormat,
     uploadPreviews: uploadPreviewsAndClearJob,
     uploadSummary,
     uploadedItemIdsRef,
@@ -137,8 +139,14 @@ export function UploadWorkspace() {
             },
             {
               label: copy.timeline.sourceOutput,
-              value: resultLabel === "tiff" ? copy.timeline.tiffReady : copy.timeline.waiting,
-              tone: resultLabel === "tiff" ? "active" : "muted",
+              value:
+                rawCompositeStatus === "completed" && resultLabel === sourceExportFormat
+                  ? copy.timeline.outputReady(formatLabel(resultLabel))
+                  : copy.timeline.waiting,
+              tone:
+                rawCompositeStatus === "completed" && resultLabel === sourceExportFormat
+                  ? "active"
+                  : "muted",
             },
           ]
         : [
@@ -172,6 +180,7 @@ export function UploadWorkspace() {
       rawCompositeStatus,
       readyCount,
       resultLabel,
+      sourceExportFormat,
     ],
   );
 
@@ -194,10 +203,10 @@ export function UploadWorkspace() {
     }
 
     setCurrentStep("source");
-    if (rawCompositeStatus === "idle") {
+    if (rawCompositeStatus === "idle" || resultLabel !== sourceExportFormat) {
       void runRawComposite();
     }
-  }, [canOpenSourceStep, rawCompositeStatus, runRawComposite]);
+  }, [canOpenSourceStep, rawCompositeStatus, resultLabel, runRawComposite, sourceExportFormat]);
 
   return (
     <main className="page-shell">
@@ -250,8 +259,11 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
+              setSourceExportFormat={setSourceExportFormat}
               showRawAction={false}
+              showSourceExportFormat
               sourceBytes={sourceBytes}
+              sourceExportFormat={sourceExportFormat}
               stepActions={
                 <>
                   <button
@@ -311,8 +323,11 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
+              setSourceExportFormat={setSourceExportFormat}
               showPreviewAction={false}
+              showSourceExportFormat
               sourceBytes={sourceBytes}
+              sourceExportFormat={sourceExportFormat}
               stepActions={
                 <button
                   type="button"
@@ -345,4 +360,8 @@ export function UploadWorkspace() {
       </section>
     </main>
   );
+}
+
+function formatLabel(format: SourceExportFormat) {
+  return format === "jpeg" ? "JPEG" : format.toUpperCase();
 }

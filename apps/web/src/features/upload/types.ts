@@ -75,10 +75,12 @@ export type ResultRow = {
 
 export type WorkspaceStep = "upload" | "preview" | "source";
 
+export type SourceExportFormat = "tiff" | "png" | "jpeg";
+
 export type CompositeOutput = {
   previewBlob: Blob;
   referencePreviewBlob?: Blob;
   downloadBlob: Blob;
   downloadFileName: string;
-  label: "png" | "tiff";
+  label: SourceExportFormat;
 };
