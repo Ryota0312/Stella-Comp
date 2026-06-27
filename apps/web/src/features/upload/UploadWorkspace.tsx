@@ -9,6 +9,7 @@ import { UploadQueuePanel } from "./components/UploadQueuePanel";
 import { useCompositeJob } from "./hooks/useCompositeJob";
 import { usePreviewUpload } from "./hooks/usePreviewUpload";
 import { useUploadQueue } from "./hooks/useUploadQueue";
+import { useUnsavedWorkGuard } from "./hooks/useUnsavedWorkGuard";
 import {
   clientCompositeStatusText,
   defaultLanguage,
@@ -122,6 +123,12 @@ export function UploadWorkspace() {
   const canStartPreview = canRunJob && !isJobBusy;
   const canOpenSourceStep = clientCompositeStatus === "completed" && Boolean(resultPreviewUrl);
   const referencePreviewUrl = resultReferencePreviewUrl ?? activeItem?.previewUrl ?? null;
+  const hasSelectedFrames = items.length > 0;
+
+  useUnsavedWorkGuard({
+    enabled: hasSelectedFrames,
+    message: copy.navigation.leaveConfirm,
+  });
 
   const jobTimeline = useMemo<TimelineItem[]>(
     () =>

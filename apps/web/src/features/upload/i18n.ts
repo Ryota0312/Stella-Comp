@@ -29,6 +29,9 @@ export const uploadCopy = {
       backToUpload: "アップロードに戻る",
       backToPreview: "プレビュー合成に戻る",
     },
+    navigation: {
+      leaveConfirm: "選択済みの画像と処理途中の内容が失われます。ページを離れますか？",
+    },
     upload: {
       kicker: "取り込み",
       title: "アップロードキュー",
@@ -224,6 +227,9 @@ export const uploadCopy = {
       startSource: "Go to Source Stack",
       backToUpload: "Back to Upload",
       backToPreview: "Back to Preview Stack",
+    },
+    navigation: {
+      leaveConfirm: "Selected images and in-progress work will be lost. Leave this page?",
     },
     upload: {
       kicker: "Ingest",
