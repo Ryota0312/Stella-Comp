@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +19,12 @@ type PreviewJobs struct {
 	Jobs          *JobStore
 	AlignmentJobs *AlignmentJobStore
 	NewID         IDGenerator
+}
+
+type CleanupResult struct {
+	DeletedPreviewSessions int
+	DeletedCompositeJobs   int
+	DeletedAlignmentJobs   int
 }
 
 func NewPreviewJobs(dataDir string, storage service.PreviewStorage, processor Processor) *PreviewJobs {
@@ -57,6 +64,66 @@ func (usecase *PreviewJobs) CreateCompositeJob(ctx context.Context, request Crea
 	return job, nil
 }
 
+func (usecase *PreviewJobs) CleanupExpired(now time.Time, ttl time.Duration) (CleanupResult, error) {
+	if ttl <= 0 {
+		return CleanupResult{}, nil
+	}
+
+	cutoff := now.Add(-ttl)
+	result := CleanupResult{}
+	protectedSessions := map[string]struct{}{}
+
+	for _, job := range usecase.Jobs.List() {
+		if !isTerminalStatus(job.Status) {
+			protectedSessions[job.SessionID] = struct{}{}
+			continue
+		}
+		if job.UpdatedAt.After(cutoff) {
+			protectedSessions[job.SessionID] = struct{}{}
+			continue
+		}
+		if job.OutputPath != "" {
+			if err := usecase.deleteCompositeJobFiles(job.OutputPath); err != nil {
+				return result, err
+			}
+		}
+		usecase.Jobs.Delete(job.JobID)
+		result.DeletedCompositeJobs++
+	}
+
+	for _, job := range usecase.AlignmentJobs.List() {
+		if !isTerminalStatus(job.Status) {
+			protectedSessions[job.SessionID] = struct{}{}
+			continue
+		}
+		if job.UpdatedAt.After(cutoff) {
+			protectedSessions[job.SessionID] = struct{}{}
+			continue
+		}
+		usecase.AlignmentJobs.Delete(job.AlignmentJobID)
+		result.DeletedAlignmentJobs++
+	}
+
+	sessions, err := usecase.Storage.ListSessions()
+	if err != nil {
+		return result, err
+	}
+	for _, session := range sessions {
+		if _, ok := protectedSessions[session.SessionID]; ok {
+			continue
+		}
+		if session.ModTime.After(cutoff) {
+			continue
+		}
+		if err := usecase.Storage.DeleteSession(session.SessionID); err != nil {
+			return result, err
+		}
+		result.DeletedPreviewSessions++
+	}
+
+	return result, nil
+}
+
 func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request EstimateTransformsRequest) (*AlignmentJobResponse, error) {
 	sessionID, previewPaths, err := usecase.validatePreviewJobRequest(request.SessionID, request.PreviewPaths, request.BaseImageIndex)
 	if err != nil {
@@ -79,6 +146,30 @@ func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request Esti
 	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex)
 
 	return alignmentJob, nil
+}
+
+func (usecase *PreviewJobs) deleteCompositeJobFiles(outputPath string) error {
+	jobDir := filepath.Dir(outputPath)
+	dataDir, err := filepath.Abs(usecase.DataDir)
+	if err != nil {
+		return err
+	}
+	absoluteJobDir, err := filepath.Abs(jobDir)
+	if err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(filepath.Join(dataDir, "jobs"), absoluteJobDir)
+	if err != nil {
+		return err
+	}
+	if relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." || filepath.IsAbs(relative) {
+		return fmt.Errorf("job output path must be inside jobs directory")
+	}
+	err = os.RemoveAll(absoluteJobDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func (usecase *PreviewJobs) GetCompositeJob(jobID string) (*JobResponse, bool) {
@@ -116,6 +207,10 @@ func (usecase *PreviewJobs) validatePreviewJobRequest(rawSessionID string, rawPr
 	}
 
 	return sessionID, previewPaths, nil
+}
+
+func isTerminalStatus(status string) bool {
+	return status == "completed" || status == "failed"
 }
 
 func (usecase *PreviewJobs) runJob(ctx context.Context, jobID string, previewPaths []string, outputPath string, baseImageIndex int) {

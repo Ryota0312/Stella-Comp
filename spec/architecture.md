@@ -148,7 +148,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
 
-現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱う。結果確認 UI は、合成 PNG と選択された基準フレームの preview JPEG の切替/左右比較、およびカーソル位置の基準/合成ピクセル等倍クロップ表示をクライアント側だけで行う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認して本画像合成ステップへ進んだ時点で開始し、処理中は進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。本画像合成ステップ内の実行ボタンは再実行および将来のオプション変更後の実行用として残す。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ永続化は後続で拡張する。
+現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱い、Blob URL で表示・ダウンロードするため、通常フローではサーバーに保存しない。結果確認 UI は、合成 PNG と選択された基準フレームの preview JPEG の切替/左右比較、およびカーソル位置の基準/合成ピクセル等倍クロップ表示をクライアント側だけで行う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認して本画像合成ステップへ進んだ時点で開始し、処理中は進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。本画像合成ステップ内の実行ボタンは再実行および将来のオプション変更後の実行用として残す。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。アップロード済み preview JPEG と fallback 結果は標準 24 時間 TTL の cleanup 対象で、TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更する。ジョブ永続化は後続で拡張する。
 
 ## 初期 gRPC API 案
 

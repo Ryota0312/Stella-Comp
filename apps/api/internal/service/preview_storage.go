@@ -22,6 +22,12 @@ type UploadedPreview struct {
 	Size      int64  `json:"size"`
 }
 
+type PreviewSession struct {
+	SessionID string
+	Path      string
+	ModTime   time.Time
+}
+
 func NewPreviewStorage(dataDir string) (PreviewStorage, error) {
 	absoluteDataDir, err := filepath.Abs(dataDir)
 	if err != nil {
@@ -64,7 +70,7 @@ func (storage PreviewStorage) SavePreviews(sessionID string, files []*multipart.
 }
 
 func (storage PreviewStorage) PathsForSession(sessionID string) ([]string, error) {
-	sessionDir := filepath.Join(storage.DataDir, "uploads", "previews", sessionID)
+	sessionDir := storage.SessionDir(sessionID)
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
 		return nil, fmt.Errorf("preview upload session not found")
@@ -80,6 +86,58 @@ func (storage PreviewStorage) PathsForSession(sessionID string) ([]string, error
 	sort.Strings(paths)
 
 	return paths, nil
+}
+
+func (storage PreviewStorage) SessionDir(sessionID string) string {
+	return filepath.Join(storage.DataDir, "uploads", "previews", SafePathSegment(sessionID))
+}
+
+func (storage PreviewStorage) ListSessions() ([]PreviewSession, error) {
+	previewsDir := filepath.Join(storage.DataDir, "uploads", "previews")
+	entries, err := os.ReadDir(previewsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	sessions := make([]PreviewSession, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		sessionID := SafePathSegment(entry.Name())
+		if sessionID != entry.Name() {
+			continue
+		}
+		sessions = append(sessions, PreviewSession{
+			SessionID: sessionID,
+			Path:      filepath.Join(previewsDir, entry.Name()),
+			ModTime:   info.ModTime(),
+		})
+	}
+	sort.Slice(sessions, func(left, right int) bool {
+		return sessions[left].SessionID < sessions[right].SessionID
+	})
+
+	return sessions, nil
+}
+
+func (storage PreviewStorage) DeleteSession(sessionID string) error {
+	sessionDir := storage.SessionDir(sessionID)
+	if err := ensureInside(storage.DataDir, sessionDir); err != nil {
+		return err
+	}
+	err := os.RemoveAll(sessionDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 func (storage PreviewStorage) ValidatePaths(sessionID string, paths []string) ([]string, error) {
@@ -179,4 +237,23 @@ func IndexedFileName(index int, fileName string) string {
 	}
 
 	return fmt.Sprintf("%04d-%s%s", index+1, stem, extension)
+}
+
+func ensureInside(root string, path string) error {
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return err
+	}
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(absoluteRoot, absolutePath)
+	if err != nil {
+		return err
+	}
+	if relative == "." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || relative == ".." || filepath.IsAbs(relative) {
+		return fmt.Errorf("path must be inside data directory")
+	}
+	return nil
 }

@@ -28,6 +28,7 @@ HTTPS Portal -> nginx -> Next.js web
 - `api`
   - Go + gin の REST API。
   - `STELLA_COMP_DATA_DIR=/data` を使い、upload と job result を共有 volume に保存する。
+  - upload preview と fallback job result は標準 24 時間 TTL の cleanup 対象にする。TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で調整し、`0` または負値では cleanup を無効化する。
   - `STELLA_COMP_WORKER_ADDR=worker:50051` で Rust worker に接続する。
 - `worker`
   - Rust gRPC server。

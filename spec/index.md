@@ -145,7 +145,9 @@ preview JPEG の位置合わせは AKAZE 特徴点を使い、短時間の星景
 - `GET /api/jobs/:jobID/result`
   - `completed` の場合のみ結果 JPEG を返す。
 
-Web UI は preview JPEG の準備完了後、自動で preview JPEG をアップロードし、`POST /api/preview-alignments` を呼び出して変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling して完了後に変換行列を取得し、ブラウザ側で preview JPEG をスタックする。preview 合成結果は Blob URL として画面プレビュー、別タブ表示、PNG ダウンロードリンクに使う。RAW 現像と元画像合成の結果は、画面表示用 PNG preview と、ユーザーが選択した TIFF / PNG / JPEG のダウンロードリンクに分ける。warning が返った場合は `TRANSFORM_ESTIMATE_FAILED` などの code と message を Execution パネルに表示する。RAW 現像と元画像合成はユーザーが preview 結果を確認した後の明示操作でのみ開始する。`POST /api/jobs` と `GET /api/jobs/:jobID/result` はサーバー側合成の比較・フォールバック用として残す。
+Web UI は preview JPEG の準備完了後、自動で preview JPEG をアップロードし、`POST /api/preview-alignments` を呼び出して変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling して完了後に変換行列を取得し、ブラウザ側で preview JPEG をスタックする。preview 合成結果は Blob URL として画面プレビュー、別タブ表示、PNG ダウンロードリンクに使うため、通常フローではサーバーに合成 PNG を保存しない。RAW 現像と元画像合成の結果は、画面表示用 PNG preview と、ユーザーが選択した TIFF / PNG / JPEG のダウンロードリンクに分ける。warning が返った場合は `TRANSFORM_ESTIMATE_FAILED` などの code と message を Execution パネルに表示する。RAW 現像と元画像合成はユーザーが preview 結果を確認した後の明示操作でのみ開始する。`POST /api/jobs` と `GET /api/jobs/:jobID/result` はサーバー側合成の比較・フォールバック用として残す。
+
+アップロード済み preview JPEG と `.data/jobs/<job-id>/` の fallback 結果は、Go API の cleanup worker が標準 24 時間 TTL で削除する。`STELLA_COMP_CLEANUP_TTL` と `STELLA_COMP_CLEANUP_INTERVAL` で変更でき、`0` または負値なら cleanup を無効化する。`queued` / `running` のジョブ、または TTL 内の完了済みジョブが参照する preview session は削除しない。
 
 Rust 側には preview JPEG の調査用 example として以下を置く。
 

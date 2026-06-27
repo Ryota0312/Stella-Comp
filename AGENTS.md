@@ -50,5 +50,6 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - 最終結果フェーズの基準/合成比較と等倍確認では、preview JPEG ではなく、合成結果と同じ RAW 現像または元画像デコード経路で生成した基準フレーム PNG を比較対象にする。
 - プレビュー合成後の画面では、本画像合成の書き出し形式を TIFF / PNG / JPEG から選択できる。TIFF は 16bit 後処理向け、PNG は劣化なし 8bit、JPEG はスマホ保存・共有向けの軽量出力として扱う。結果表示と等倍確認はブラウザ互換性のため常に PNG を使い、TIFF 選択時のみ TIFF エンコードを追加で実行する。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
+- アップロード済み preview JPEG と `/api/jobs` の fallback 合成結果は Go API の cleanup worker が標準 24 時間 TTL で削除する。通常フローのブラウザ側 preview 合成 PNG は Blob URL で扱い、サーバーには保存しない。TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更できる。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。
 - Rust workspace の検証には OpenCV と libclang/LLVM の開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境、または `llvm-config` / libclang がない環境では `cargo check` が失敗する。

@@ -27,6 +27,13 @@ GOCACHE=$PWD/.gocache GOMODCACHE=$PWD/.gomodcache mise exec -- go run ./cmd/api
 
 Go API は標準で `http://localhost:8080` を使います。
 
+Preview upload と fallback 合成結果の保存 TTL は環境変数で変更できます。`0` または負値を指定すると cleanup は無効になります。
+
+```sh
+STELLA_COMP_CLEANUP_TTL=24h
+STELLA_COMP_CLEANUP_INTERVAL=1h
+```
+
 Rust worker:
 
 ```sh
@@ -81,7 +88,7 @@ https://localhost/      Next.js
 https://localhost/api/  Go API
 ```
 
-HTTP 側は `http://localhost` で受け、HTTPS Portal が HTTPS へリダイレクトします。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。
+HTTP 側は `http://localhost` で受け、HTTPS Portal が HTTPS へリダイレクトします。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。アップロード済み preview JPEG と `/api/jobs` の fallback 合成結果は、標準で 24 時間後に Go API の cleanup worker が削除します。通常フローのブラウザ側 preview 合成 PNG は Blob URL として扱うため、サーバーには保存されません。
 
 Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候補として同時に起動します。現時点の API 実装はまだプロセス内メモリでジョブ状態を管理し、goroutine で worker を呼び出します。API の複数 replica 化、再起動耐性、retry、cancel、timeout が必要になる段階で、job store と queue をセットで Valkey に移します。詳細は `spec/deployment.md` を参照してください。
 
@@ -196,6 +203,8 @@ GET  /api/jobs/:jobID/result
 `POST /api/preview-alignments` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `EstimateTransforms` へ渡す非同期ジョブを作成します。レスポンスは `202 Accepted` と `alignmentJobId` です。`GET /api/preview-alignments/:alignmentJobID` は `queued` / `running` / `completed` / `failed` の状態を返し、完了時は各画像を基準preview座標系へ写す 2x3 アフィン変換行列を返します。Web UI はこの行列を使い、ブラウザの Canvas 上で preview JPEG をアフィン変換して加算平均合成し、PNG を生成します。
 
 `POST /api/jobs` は従来のサーバー合成用エンドポイントとして残しています。preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、Rust worker の `AlignAndAverage` で preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、その絶対パスを worker へ渡します。ジョブ状態は Go API プロセス内のメモリで管理します。
+
+アップロード済み preview JPEG と `.data/jobs/<job-id>/` の fallback 結果は、標準で 24 時間 TTL の cleanup 対象です。`queued` / `running` のジョブ、または TTL 内の完了済みジョブが参照する preview session は削除しません。通常フローのブラウザ側 preview 合成 PNG はサーバーには保存されません。
 
 ```json
 {

@@ -37,6 +37,17 @@ func (store *JobStore) Get(jobID string) (*JobResponse, bool) {
 	return cloneJob(job), true
 }
 
+func (store *JobStore) List() []*JobResponse {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	jobs := make([]*JobResponse, 0, len(store.jobs))
+	for _, job := range store.jobs {
+		jobs = append(jobs, cloneJob(job))
+	}
+	return jobs
+}
+
 func (store *JobStore) Update(jobID string, update func(job *JobResponse)) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -46,6 +57,12 @@ func (store *JobStore) Update(jobID string, update func(job *JobResponse)) {
 	}
 
 	update(job)
+}
+
+func (store *JobStore) Delete(jobID string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	delete(store.jobs, jobID)
 }
 
 func (store *AlignmentJobStore) Put(job *AlignmentJobResponse) {
@@ -65,6 +82,17 @@ func (store *AlignmentJobStore) Get(jobID string) (*AlignmentJobResponse, bool) 
 	return cloneAlignmentJob(job), true
 }
 
+func (store *AlignmentJobStore) List() []*AlignmentJobResponse {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	jobs := make([]*AlignmentJobResponse, 0, len(store.jobs))
+	for _, job := range store.jobs {
+		jobs = append(jobs, cloneAlignmentJob(job))
+	}
+	return jobs
+}
+
 func (store *AlignmentJobStore) Update(jobID string, update func(job *AlignmentJobResponse)) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -74,6 +102,12 @@ func (store *AlignmentJobStore) Update(jobID string, update func(job *AlignmentJ
 	}
 
 	update(job)
+}
+
+func (store *AlignmentJobStore) Delete(jobID string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	delete(store.jobs, jobID)
 }
 
 func cloneJob(job *JobResponse) *JobResponse {

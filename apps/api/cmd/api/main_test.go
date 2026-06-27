@@ -15,6 +15,7 @@ import (
 	"time"
 
 	stellacompv1 "github.com/Ryota0312/stella-comp/apps/api/internal/gen/stellacomp/v1"
+	"github.com/Ryota0312/stella-comp/apps/api/internal/service"
 	apihttp "github.com/Ryota0312/stella-comp/apps/api/internal/transport/http"
 	"github.com/Ryota0312/stella-comp/apps/api/internal/usecase"
 	"github.com/gin-gonic/gin"
@@ -329,6 +330,120 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	}
 }
 
+func TestCleanupExpiredRemovesOldPreviewSessionAndTerminalJobs(t *testing.T) {
+	dataDir := t.TempDir()
+	jobs := newTestPreviewJobs(t, dataDir)
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	oldTime := now.Add(-25 * time.Hour)
+
+	createPreviewSession(t, dataDir, "session-old", oldTime)
+	outputPath := filepath.Join(dataDir, "jobs", "job-old", "result.jpg")
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outputPath, []byte("result"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	jobs.Jobs.Put(&usecase.JobResponse{
+		JobID:      "job-old",
+		Status:     "completed",
+		SessionID:  "session-old",
+		OutputPath: outputPath,
+		CreatedAt:  oldTime,
+		UpdatedAt:  oldTime,
+	})
+	jobs.AlignmentJobs.Put(&usecase.AlignmentJobResponse{
+		AlignmentJobID: "alignment-old",
+		Status:         "failed",
+		SessionID:      "session-old",
+		CreatedAt:      oldTime,
+		UpdatedAt:      oldTime,
+	})
+
+	result, err := jobs.CleanupExpired(now, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.DeletedPreviewSessions != 1 || result.DeletedCompositeJobs != 1 || result.DeletedAlignmentJobs != 1 {
+		t.Fatalf("cleanup result = %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "uploads", "previews", "session-old")); !os.IsNotExist(err) {
+		t.Fatalf("expected preview session deleted, stat err = %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "jobs", "job-old")); !os.IsNotExist(err) {
+		t.Fatalf("expected job directory deleted, stat err = %v", err)
+	}
+	if _, ok := jobs.GetCompositeJob("job-old"); ok {
+		t.Fatal("expected composite job state deleted")
+	}
+	if _, ok := jobs.GetAlignmentJob("alignment-old"); ok {
+		t.Fatal("expected alignment job state deleted")
+	}
+}
+
+func TestCleanupExpiredKeepsPreviewSessionReferencedByRunningJob(t *testing.T) {
+	dataDir := t.TempDir()
+	jobs := newTestPreviewJobs(t, dataDir)
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	oldTime := now.Add(-25 * time.Hour)
+
+	createPreviewSession(t, dataDir, "session-running", oldTime)
+	jobs.AlignmentJobs.Put(&usecase.AlignmentJobResponse{
+		AlignmentJobID: "alignment-running",
+		Status:         "running",
+		SessionID:      "session-running",
+		CreatedAt:      oldTime,
+		UpdatedAt:      oldTime,
+	})
+
+	result, err := jobs.CleanupExpired(now, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.DeletedPreviewSessions != 0 || result.DeletedAlignmentJobs != 0 {
+		t.Fatalf("cleanup result = %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "uploads", "previews", "session-running")); err != nil {
+		t.Fatalf("expected running session to remain: %v", err)
+	}
+	if _, ok := jobs.GetAlignmentJob("alignment-running"); !ok {
+		t.Fatal("expected running alignment job state to remain")
+	}
+}
+
+func TestCleanupExpiredKeepsPreviewSessionReferencedByRecentTerminalJob(t *testing.T) {
+	dataDir := t.TempDir()
+	jobs := newTestPreviewJobs(t, dataDir)
+	now := time.Date(2026, 6, 27, 12, 0, 0, 0, time.UTC)
+	oldTime := now.Add(-25 * time.Hour)
+
+	createPreviewSession(t, dataDir, "session-recent", oldTime)
+	jobs.AlignmentJobs.Put(&usecase.AlignmentJobResponse{
+		AlignmentJobID: "alignment-recent",
+		Status:         "completed",
+		SessionID:      "session-recent",
+		CreatedAt:      oldTime,
+		UpdatedAt:      now.Add(-time.Hour),
+	})
+
+	result, err := jobs.CleanupExpired(now, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.DeletedPreviewSessions != 0 || result.DeletedAlignmentJobs != 0 {
+		t.Fatalf("cleanup result = %#v", result)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "uploads", "previews", "session-recent")); err != nil {
+		t.Fatalf("expected recent terminal session to remain: %v", err)
+	}
+	if _, ok := jobs.GetAlignmentJob("alignment-recent"); !ok {
+		t.Fatal("expected recent alignment job state to remain")
+	}
+}
+
 func waitForJobStatus(t *testing.T, router http.Handler, jobID string, status string) usecase.JobResponse {
 	t.Helper()
 
@@ -381,4 +496,29 @@ func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, 
 
 	t.Fatalf("preview alignment job %s did not reach status %s", jobID, status)
 	return usecase.AlignmentJobResponse{}
+}
+
+func newTestPreviewJobs(t *testing.T, dataDir string) *usecase.PreviewJobs {
+	t.Helper()
+
+	storage, err := service.NewPreviewStorage(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return usecase.NewPreviewJobs(storage.DataDir, storage, &fakeProcessor{})
+}
+
+func createPreviewSession(t *testing.T, dataDir string, sessionID string, modTime time.Time) {
+	t.Helper()
+
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", sessionID)
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sessionDir, "0001-frame.jpg"), []byte("preview"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(sessionDir, modTime, modTime); err != nil {
+		t.Fatal(err)
+	}
 }
