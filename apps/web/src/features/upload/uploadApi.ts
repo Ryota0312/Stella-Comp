@@ -1,3 +1,5 @@
+import type { AlignmentMethod } from "./types";
+
 export type PreviewUploadSummary = {
   sessionId: string;
   uploaded: UploadedPreview[];
@@ -34,6 +36,7 @@ export type ImageTransform = {
 export type PreviewAlignmentSummary = {
   sessionId: string;
   baseImageIndex: number;
+  alignmentMethod: AlignmentMethod;
   previewPaths: string[];
   transforms: ImageTransform[];
   warnings?: ProcessingWarning[];
@@ -89,13 +92,15 @@ export async function createPreviewJob(
 export async function estimatePreviewAlignments(
   sessionId: string,
   baseImageIndex: number,
+  alignmentMethod: AlignmentMethod,
 ): Promise<PreviewAlignmentSummary> {
-  const created = await createPreviewAlignmentJob(sessionId, baseImageIndex);
+  const created = await createPreviewAlignmentJob(sessionId, baseImageIndex, alignmentMethod);
   const completed = await waitForPreviewAlignmentJob(created.alignmentJobId);
 
   return {
     sessionId: completed.sessionId,
     baseImageIndex: completed.baseImageIndex,
+    alignmentMethod: completed.alignmentMethod,
     previewPaths: completed.previewPaths,
     transforms: completed.transforms,
     warnings: completed.warnings,
@@ -105,13 +110,14 @@ export async function estimatePreviewAlignments(
 async function createPreviewAlignmentJob(
   sessionId: string,
   baseImageIndex: number,
+  alignmentMethod: AlignmentMethod,
 ): Promise<PreviewAlignmentJobSummary> {
   const response = await fetch(`${apiBaseUrl()}/preview-alignments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sessionId, baseImageIndex }),
+    body: JSON.stringify({ sessionId, baseImageIndex, alignmentMethod }),
   });
 
   if (!response.ok) {

@@ -77,6 +77,8 @@ export type WorkspaceStep = "upload" | "preview" | "source";
 
 export type SourceExportFormat = "tiff" | "png" | "jpeg";
 
+export type AlignmentMethod = "stars" | "akaze";
+
 export type CompositeOutput = {
   previewBlob: Blob;
   referencePreviewBlob?: Blob;

@@ -129,21 +129,23 @@ func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request Esti
 	if err != nil {
 		return nil, err
 	}
+	alignmentMethod := NormalizeAlignmentMethod(request.AlignmentMethod)
 
 	alignmentJobID := usecase.NewID()
 	now := time.Now().UTC()
 	alignmentJob := &AlignmentJobResponse{
-		AlignmentJobID: alignmentJobID,
-		Status:         "queued",
-		SessionID:      sessionID,
-		BaseImageIndex: request.BaseImageIndex,
-		PreviewPaths:   previewPaths,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		AlignmentJobID:  alignmentJobID,
+		Status:          "queued",
+		SessionID:       sessionID,
+		BaseImageIndex:  request.BaseImageIndex,
+		AlignmentMethod: alignmentMethod,
+		PreviewPaths:    previewPaths,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	usecase.AlignmentJobs.Put(alignmentJob)
 
-	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex)
+	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex, alignmentMethod)
 
 	return alignmentJob, nil
 }
@@ -241,15 +243,16 @@ func (usecase *PreviewJobs) runJob(ctx context.Context, jobID string, previewPat
 	})
 }
 
-func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, images []*stellacompv1.InputImage, baseImageIndex int) {
+func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, images []*stellacompv1.InputImage, baseImageIndex int, alignmentMethod string) {
 	usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
 		job.Status = "running"
 		job.UpdatedAt = time.Now().UTC()
 	})
 
 	response, err := usecase.Processor.EstimateTransforms(ctx, &stellacompv1.EstimateTransformsRequest{
-		Images:         images,
-		BaseImageIndex: int32(baseImageIndex),
+		Images:          images,
+		BaseImageIndex:  int32(baseImageIndex),
+		AlignmentMethod: alignmentMethod,
 	})
 	if err != nil {
 		usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
@@ -266,6 +269,15 @@ func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, i
 		job.Warnings = ProcessingWarningsFromProto(response.GetWarnings())
 		job.UpdatedAt = time.Now().UTC()
 	})
+}
+
+func NormalizeAlignmentMethod(rawMethod string) string {
+	switch strings.TrimSpace(rawMethod) {
+	case "stars":
+		return "stars"
+	default:
+		return "akaze"
+	}
 }
 
 func ImageTransformsFromProto(protoTransforms []*stellacompv1.ImageTransform) []ImageTransform {

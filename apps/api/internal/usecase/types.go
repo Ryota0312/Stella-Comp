@@ -19,22 +19,24 @@ type CreateJobRequest struct {
 }
 
 type EstimateTransformsRequest struct {
-	SessionID      string   `json:"sessionId"`
-	PreviewPaths   []string `json:"previewPaths"`
-	BaseImageIndex int      `json:"baseImageIndex"`
+	SessionID       string   `json:"sessionId"`
+	PreviewPaths    []string `json:"previewPaths"`
+	BaseImageIndex  int      `json:"baseImageIndex"`
+	AlignmentMethod string   `json:"alignmentMethod"`
 }
 
 type AlignmentJobResponse struct {
-	AlignmentJobID string              `json:"alignmentJobId"`
-	Status         string              `json:"status"`
-	SessionID      string              `json:"sessionId"`
-	BaseImageIndex int                 `json:"baseImageIndex"`
-	PreviewPaths   []string            `json:"previewPaths"`
-	Transforms     []ImageTransform    `json:"transforms,omitempty"`
-	Error          string              `json:"error,omitempty"`
-	Warnings       []ProcessingWarning `json:"warnings,omitempty"`
-	CreatedAt      time.Time           `json:"createdAt"`
-	UpdatedAt      time.Time           `json:"updatedAt"`
+	AlignmentJobID  string              `json:"alignmentJobId"`
+	Status          string              `json:"status"`
+	SessionID       string              `json:"sessionId"`
+	BaseImageIndex  int                 `json:"baseImageIndex"`
+	AlignmentMethod string              `json:"alignmentMethod"`
+	PreviewPaths    []string            `json:"previewPaths"`
+	Transforms      []ImageTransform    `json:"transforms,omitempty"`
+	Error           string              `json:"error,omitempty"`
+	Warnings        []ProcessingWarning `json:"warnings,omitempty"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
 }
 
 type ImageTransform struct {

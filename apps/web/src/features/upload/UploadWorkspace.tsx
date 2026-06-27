@@ -18,7 +18,7 @@ import {
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { SourceExportFormat, TimelineItem, WorkspaceStep } from "./types";
+import type { AlignmentMethod, SourceExportFormat, TimelineItem, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
 const debugEnabled =
@@ -35,6 +35,7 @@ export function UploadWorkspace() {
     return languages.includes(storedLanguage as Language) ? (storedLanguage as Language) : defaultLanguage;
   });
   const [currentStep, setCurrentStep] = useState<WorkspaceStep>("upload");
+  const [alignmentMethod, setAlignmentMethod] = useState<AlignmentMethod>("stars");
   const [sourceExportFormat, setSourceExportFormat] = useState<SourceExportFormat>("tiff");
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
@@ -109,6 +110,7 @@ export function UploadWorkspace() {
     runRawComposite,
   } = useCompositeJob({
     activeId,
+    alignmentMethod,
     canRunJob,
     copy,
     items,
@@ -251,6 +253,7 @@ export function UploadWorkspace() {
           <>
             <JobStatusPanel
               canRunJob={canRunJob}
+              alignmentMethod={alignmentMethod}
               compressionRatio={compressionRatio}
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}
@@ -266,6 +269,7 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
+              setAlignmentMethod={setAlignmentMethod}
               setSourceExportFormat={setSourceExportFormat}
               showRawAction={false}
               showSourceExportFormat
@@ -315,6 +319,7 @@ export function UploadWorkspace() {
           <>
             <JobStatusPanel
               canRunJob={canRunJob}
+              alignmentMethod={alignmentMethod}
               compressionRatio={compressionRatio}
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}
@@ -330,6 +335,7 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
+              setAlignmentMethod={setAlignmentMethod}
               setSourceExportFormat={setSourceExportFormat}
               showPreviewAction={false}
               showSourceExportFormat

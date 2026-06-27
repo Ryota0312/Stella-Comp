@@ -260,7 +260,7 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	processor := &fakeProcessor{}
 	router := newRouterWithProcessor(dataDir, processor)
 
-	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1,"alignmentMethod":"stars"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 
@@ -276,10 +276,16 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	if created.AlignmentJobID == "" {
 		t.Fatal("expected alignment job id")
 	}
+	if created.AlignmentMethod != "stars" {
+		t.Fatalf("created alignment method = %q", created.AlignmentMethod)
+	}
 
 	body := waitForAlignmentJobStatus(t, router, created.AlignmentJobID, "completed")
 	if processor.transformRequest.GetBaseImageIndex() != 1 {
 		t.Fatalf("base image index = %d", processor.transformRequest.GetBaseImageIndex())
+	}
+	if processor.transformRequest.GetAlignmentMethod() != "stars" {
+		t.Fatalf("worker alignment method = %q", processor.transformRequest.GetAlignmentMethod())
 	}
 	if len(processor.transformRequest.GetImages()) != 2 {
 		t.Fatalf("worker images = %d", len(processor.transformRequest.GetImages()))
@@ -293,6 +299,9 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	}
 	if len(body.Warnings) != 1 || body.Warnings[0].Code != "TEST_TRANSFORM_WARNING" {
 		t.Fatalf("warnings = %#v", body.Warnings)
+	}
+	if body.AlignmentMethod != "stars" {
+		t.Fatalf("completed alignment method = %q", body.AlignmentMethod)
 	}
 }
 
@@ -327,6 +336,9 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	job := waitForAlignmentJobStatus(t, router, created.AlignmentJobID, "failed")
 	if !strings.Contains(job.Error, "worker unavailable") {
 		t.Fatalf("job error = %q", job.Error)
+	}
+	if job.AlignmentMethod != "akaze" {
+		t.Fatalf("default alignment method = %q", job.AlignmentMethod)
 	}
 }
 

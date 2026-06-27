@@ -202,11 +202,12 @@ func (x *AlignAndAverageResponse) GetWarnings() []*ProcessingWarning {
 }
 
 type EstimateTransformsRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Images         []*InputImage          `protobuf:"bytes,1,rep,name=images,proto3" json:"images,omitempty"`
-	BaseImageIndex int32                  `protobuf:"varint,2,opt,name=base_image_index,json=baseImageIndex,proto3" json:"base_image_index,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Images          []*InputImage          `protobuf:"bytes,1,rep,name=images,proto3" json:"images,omitempty"`
+	BaseImageIndex  int32                  `protobuf:"varint,2,opt,name=base_image_index,json=baseImageIndex,proto3" json:"base_image_index,omitempty"`
+	AlignmentMethod string                 `protobuf:"bytes,3,opt,name=alignment_method,json=alignmentMethod,proto3" json:"alignment_method,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *EstimateTransformsRequest) Reset() {
@@ -251,6 +252,13 @@ func (x *EstimateTransformsRequest) GetBaseImageIndex() int32 {
 		return x.BaseImageIndex
 	}
 	return 0
+}
+
+func (x *EstimateTransformsRequest) GetAlignmentMethod() string {
+	if x != nil {
+		return x.AlignmentMethod
+	}
+	return ""
 }
 
 type EstimateTransformsResponse struct {
@@ -491,10 +499,11 @@ const file_stellacomp_v1_processor_proto_rawDesc = "" +
 	"\x17AlignAndAverageResponse\x12\x1f\n" +
 	"\voutput_path\x18\x01 \x01(\tR\n" +
 	"outputPath\x12<\n" +
-	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"x\n" +
+	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"\xa3\x01\n" +
 	"\x19EstimateTransformsRequest\x121\n" +
 	"\x06images\x18\x01 \x03(\v2\x19.stellacomp.v1.InputImageR\x06images\x12(\n" +
-	"\x10base_image_index\x18\x02 \x01(\x05R\x0ebaseImageIndex\"\x99\x01\n" +
+	"\x10base_image_index\x18\x02 \x01(\x05R\x0ebaseImageIndex\x12)\n" +
+	"\x10alignment_method\x18\x03 \x01(\tR\x0falignmentMethod\"\x99\x01\n" +
 	"\x1aEstimateTransformsResponse\x12=\n" +
 	"\n" +
 	"transforms\x18\x01 \x03(\v2\x1d.stellacomp.v1.ImageTransformR\n" +

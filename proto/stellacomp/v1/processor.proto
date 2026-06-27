@@ -30,6 +30,7 @@ message AlignAndAverageResponse {
 message EstimateTransformsRequest {
   repeated InputImage images = 1;
   int32 base_image_index = 2;
+  string alignment_method = 3;
 }
 
 message EstimateTransformsResponse {

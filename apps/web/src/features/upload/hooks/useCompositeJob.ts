@@ -6,6 +6,7 @@ import type {
   ClientCompositeStatus,
   CompositeProgress,
   CompositeOutput,
+  AlignmentMethod,
   QueueItem,
   RawCompositeStatus,
   SourceExportFormat,
@@ -23,6 +24,7 @@ type UseCompositeJobOptions = {
   activeId: string | null;
   canRunJob: boolean;
   copy: UploadCopy;
+  alignmentMethod: AlignmentMethod;
   items: QueueItem[];
   sourceExportFormat: SourceExportFormat;
   uploadPreviews: () => Promise<PreviewUploadSummary | null>;
@@ -32,6 +34,7 @@ type UseCompositeJobOptions = {
 
 export function useCompositeJob({
   activeId,
+  alignmentMethod,
   canRunJob,
   copy,
   items,
@@ -139,12 +142,16 @@ export function useCompositeJob({
 
   const estimateAlignment = useCallback(
     async (summary: PreviewUploadSummary, baseImageIndex: number) => {
-      const alignment = await estimatePreviewAlignments(summary.sessionId, baseImageIndex);
+      const alignment = await estimatePreviewAlignments(
+        summary.sessionId,
+        baseImageIndex,
+        alignmentMethod,
+      );
       setLastAlignment(alignment);
       setClientWarnings(alignment.warnings ?? []);
       return alignment;
     },
-    [],
+    [alignmentMethod],
   );
 
   const runComposite = useCallback(async () => {
@@ -214,7 +221,10 @@ export function useCompositeJob({
 
       const baseImageIndex = baseIndexForJob();
       let transforms: ImageTransform[];
-      if (lastAlignment?.sessionId === summary.sessionId) {
+      if (
+        lastAlignment?.sessionId === summary.sessionId &&
+        lastAlignment.alignmentMethod === alignmentMethod
+      ) {
         transforms = lastAlignment.transforms;
       } else {
         setClientCompositeStatus("estimating");
@@ -243,6 +253,7 @@ export function useCompositeJob({
     }
   }, [
     baseIndexForJob,
+    alignmentMethod,
     canRunJob,
     copy,
     estimateAlignment,

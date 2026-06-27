@@ -50,6 +50,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - Web UI の配色は、シアンを現在ステップ・選択状態・プレビュー処理、青を次フェーズ CTA、緑を成果物ダウンロードと成功状態、グレーを補助操作、アンバーを警告や処理中、赤をエラーや失敗に使う。次フェーズ CTA は通常のシアン系処理ボタンより強く表示し、シアンの塗りボタンは乱用しない。
 - 最終結果フェーズの基準/合成比較と等倍確認では、preview JPEG ではなく、合成結果と同じ RAW 現像または元画像デコード経路で生成した基準フレーム PNG を比較対象にする。
 - プレビュー合成後の画面では、本画像合成の書き出し形式を TIFF / PNG / JPEG から選択できる。TIFF は 16bit 後処理向け、PNG は劣化なし 8bit、JPEG はスマホ保存・共有向けの軽量出力として扱う。結果表示と等倍確認はブラウザ互換性のため常に PNG を使い、TIFF 選択時のみ TIFF エンコードを追加で実行する。
+- preview JPEG の位置合わせ方式は Web UI で `stars`（星検出・標準）と `akaze`（旧方式）を選択できる。`EstimateTransforms` の方式未指定または未知値は互換性のため `akaze` として扱う。`stars` は星候補の局所輝度ピークと近傍距離比による対応付けから部分アフィン変換を推定し、画面端の流れが残る場合は homography やメッシュワープを後続で検討する。
 - ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
 - アップロード済み preview JPEG と `/api/jobs` の fallback 合成結果は Go API の cleanup worker が標準 24 時間 TTL で削除する。通常フローのブラウザ側 preview 合成 PNG は Blob URL で扱い、サーバーには保存しない。TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更できる。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。

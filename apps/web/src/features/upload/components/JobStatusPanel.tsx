@@ -2,6 +2,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import type {
   ClientCompositeStatus,
   CompositeProgress,
+  AlignmentMethod,
   RawCompositeStatus,
   SourceExportFormat,
   TimelineItem,
@@ -17,6 +18,7 @@ import { formatBytes } from "../utils";
 
 type JobStatusPanelProps = {
   canRunJob: boolean;
+  alignmentMethod: AlignmentMethod;
   compressionRatio: number;
   clientCompositeStatus: ClientCompositeStatus;
   clientWarnings: ProcessingWarning[];
@@ -32,6 +34,7 @@ type JobStatusPanelProps = {
   resultLabel: SourceExportFormat | null;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
+  setAlignmentMethod: (method: AlignmentMethod) => void;
   setSourceExportFormat?: (format: SourceExportFormat) => void;
   stepActions?: ReactNode;
   showPreviewAction?: boolean;
@@ -46,6 +49,7 @@ type JobStatusPanelProps = {
 
 export function JobStatusPanel({
   canRunJob,
+  alignmentMethod,
   compressionRatio,
   clientCompositeStatus,
   clientWarnings,
@@ -61,6 +65,7 @@ export function JobStatusPanel({
   resultLabel,
   runComposite,
   runRawComposite,
+  setAlignmentMethod,
   setSourceExportFormat,
   stepActions,
   showPreviewAction = true,
@@ -80,6 +85,7 @@ export function JobStatusPanel({
         [copy.debug.alignmentJob, job ? `${job.jobId} (${job.status})` : "-"],
         [copy.debug.clientStatus, clientCompositeStatusText(clientCompositeStatus, language)],
         [copy.debug.rawStatus, rawCompositeStatusText(rawCompositeStatus, language)],
+        [copy.debug.alignmentMethod, alignmentMethod],
         [copy.debug.output, resultLabel ?? "-"],
         [copy.debug.warnings, `${clientWarnings.length}`],
       ]
@@ -122,6 +128,21 @@ export function JobStatusPanel({
             <span className={`timeline-state timeline-${item.tone}`}>{item.value}</span>
           </div>
         ))}
+      </div>
+      <div className="source-export-control">
+        <label className="field">
+          <span>{copy.execution.alignmentMethod}</span>
+          <select
+            value={alignmentMethod}
+            disabled={isJobBusy}
+            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+              setAlignmentMethod(event.currentTarget.value as AlignmentMethod)
+            }
+          >
+            <option value="stars">{copy.execution.alignmentMethods.stars}</option>
+            <option value="akaze">{copy.execution.alignmentMethods.akaze}</option>
+          </select>
+        </label>
       </div>
       {showSourceExportFormat ? (
         <div className="source-export-control">

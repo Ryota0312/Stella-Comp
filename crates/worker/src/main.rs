@@ -76,6 +76,7 @@ impl ImageProcessor for WorkerService {
                 })
                 .collect(),
             base_image_index,
+            alignment_method: stellacomp::AlignmentMethod::from_wire(&request.alignment_method),
         };
 
         let output = stellacomp::estimate_transforms(input)
