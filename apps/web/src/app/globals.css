@@ -73,15 +73,15 @@ button {
 .page-shell {
   width: min(1440px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 14px 0;
+  padding: 10px 0;
 }
 
 .hero-band {
   display: grid;
-  grid-template-columns: minmax(220px, 0.9fr) auto minmax(310px, 0.9fr) auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background:
@@ -98,11 +98,11 @@ button {
 }
 
 .hero-description {
-  max-width: 40ch;
-  margin: 8px 0 0;
+  max-width: 34ch;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.3;
 }
 
 .hero-text {
@@ -113,8 +113,7 @@ button {
 }
 
 .eyebrow,
-.panel-kicker,
-.metric-label {
+.panel-kicker {
   margin: 0 0 10px;
   color: var(--muted);
   font-size: 0.78rem;
@@ -123,15 +122,9 @@ button {
   text-transform: uppercase;
 }
 
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(92px, 1fr));
-  gap: 14px;
-  align-content: start;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(7, 10, 14, 0.58);
+.hero-band .eyebrow {
+  margin-bottom: 5px;
+  font-size: 0.74rem;
 }
 
 .hero-side {
@@ -146,8 +139,8 @@ button {
 }
 
 .language-switcher select {
-  min-width: 122px;
-  padding: 0.58rem 2rem 0.58rem 0.85rem;
+  min-width: 104px;
+  padding: 0.42rem 1.75rem 0.42rem 0.68rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--text);
@@ -161,7 +154,6 @@ button {
   outline-offset: 2px;
 }
 
-.hero-metrics strong,
 .result-row strong {
   display: block;
   margin-top: 4px;
@@ -171,15 +163,15 @@ button {
 .stepper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .stepper-item {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-width: 128px;
-  padding: 8px 10px;
+  gap: 6px;
+  min-width: 112px;
+  padding: 6px 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   color: var(--muted);
@@ -189,16 +181,16 @@ button {
 .stepper-item span {
   display: grid;
   place-items: center;
-  width: 24px;
+  width: 21px;
   aspect-ratio: 1;
   border-radius: 999px;
   background: rgba(211, 232, 238, 0.1);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   font-weight: 800;
 }
 
 .stepper-item strong {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .stepper-item-active {
@@ -218,7 +210,7 @@ button {
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
   grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 10px;
   min-height: 0;
 }
 
@@ -1174,10 +1166,13 @@ button {
 @media (max-width: 720px) {
   .page-shell {
     width: min(100vw - 20px, 100%);
-    padding: 12px 0 28px;
+    padding: 10px 0 24px;
   }
 
-  .hero-band,
+  .hero-band {
+    padding: 10px;
+  }
+
   .panel {
     padding: 16px;
   }

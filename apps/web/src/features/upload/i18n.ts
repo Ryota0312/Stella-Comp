@@ -14,14 +14,9 @@ export const uploadCopy = {
     hero: {
       eyebrow: "星景写真の位置合わせ・コンポジット",
       title: "Stella Comp",
-      description:
-        "短時間露光の星景フレームを揃えて重ね、ノイズを抑えた星空画像づくりを支援します。",
-      statusLabel: "プロジェクトの状態",
+      description: "星を揃えて重ね、低ノイズな星空に仕上げます。",
       selected: "選択済み",
       frames: (count: number) => `${count} フレーム`,
-      previewPayload: "プレビュー容量",
-      compression: "圧縮率",
-      waiting: "待機中",
     },
     steps: {
       upload: "アップロード",
@@ -203,14 +198,9 @@ export const uploadCopy = {
     hero: {
       eyebrow: "Astrophoto alignment and compositing",
       title: "Stella Comp",
-      description:
-        "Align short-exposure night-sky frames and composite them into a cleaner astrophoto.",
-      statusLabel: "Project status",
+      description: "Align and stack stars into a cleaner night-sky image.",
       selected: "Selected",
       frames: (count: number) => `${count} frames`,
-      previewPayload: "Preview payload",
-      compression: "Compression",
-      waiting: "Waiting",
     },
     steps: {
       upload: "Upload",

@@ -202,12 +202,9 @@ export function UploadWorkspace() {
   return (
     <main className="page-shell">
       <HeroMetrics
-        compressionRatio={compressionRatio}
         copy={copy}
         currentStep={currentStep}
-        frameCount={items.length}
         language={language}
-        previewBytes={previewBytes}
         setLanguage={setLanguage}
       />
 
