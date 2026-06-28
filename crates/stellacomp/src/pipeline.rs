@@ -173,7 +173,7 @@ impl fmt::Display for StellaCompError {
                 write!(formatter, "insufficient RANSAC inliers: {count}")
             }
             StellaCompError::InvalidTransform(message) => {
-                write!(formatter, "invalid affine transform: {message}")
+                write!(formatter, "invalid transform: {message}")
             }
             StellaCompError::Average(message) => {
                 write!(formatter, "average composite failed: {message}")
@@ -428,7 +428,7 @@ fn estimate_transform_to_base(
             estimate_partial_affine_from_points(matched_points)?,
         )),
         TransformModel::Homography => Ok(EstimatedTransform::Homography(
-            estimate_homography_from_points(matched_points)?,
+            estimate_homography_from_points(matched_points, base_image.dimensions())?,
         )),
     }
 }
@@ -574,6 +574,7 @@ fn estimate_partial_affine_from_points(
 
 fn estimate_homography_from_points(
     matched_points: MatchedPointSet,
+    base_dimensions: (u32, u32),
 ) -> Result<[f64; 9], StellaCompError> {
     if matched_points.match_count < 4 {
         return Err(StellaCompError::InsufficientMatches {
@@ -610,7 +611,7 @@ fn estimate_homography_from_points(
         ));
     }
 
-    validate_homography(&homography)?;
+    validate_homography(&homography, base_dimensions)?;
 
     mat_to_homography(&homography)
 }
@@ -633,7 +634,10 @@ fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
     Ok(())
 }
 
-fn validate_homography(homography: &Mat) -> Result<(), StellaCompError> {
+fn validate_homography(
+    homography: &Mat,
+    base_dimensions: (u32, u32),
+) -> Result<(), StellaCompError> {
     let bottom_right = *homography
         .at_2d::<f64>(2, 2)
         .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
@@ -651,11 +655,45 @@ fn validate_homography(homography: &Mat) -> Result<(), StellaCompError> {
         .at_2d::<f64>(1, 1)
         .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
         / bottom_right;
+    let perspective_x = *homography
+        .at_2d::<f64>(2, 0)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+        / bottom_right;
+    let perspective_y = *homography
+        .at_2d::<f64>(2, 1)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+        / bottom_right;
     let scale = (a.abs() + d.abs()) / 2.0;
     if !(0.70..=1.30).contains(&scale) {
         return Err(StellaCompError::InvalidTransform(format!(
             "homography scale {scale:.3} is outside MVP limits"
         )));
+    }
+
+    let (width, height) = base_dimensions;
+    let max_perspective_shift =
+        (perspective_x.abs() * width as f64) + (perspective_y.abs() * height as f64);
+    if max_perspective_shift > 0.10 {
+        return Err(StellaCompError::InvalidTransform(format!(
+            "homography perspective shift {max_perspective_shift:.3} is outside MVP limits"
+        )));
+    }
+
+    for (x, y) in [
+        (0.0, 0.0),
+        (width.saturating_sub(1) as f64, 0.0),
+        (0.0, height.saturating_sub(1) as f64),
+        (
+            width.saturating_sub(1) as f64,
+            height.saturating_sub(1) as f64,
+        ),
+    ] {
+        let denominator = perspective_x * x + perspective_y * y + 1.0;
+        if !denominator.is_finite() || !(0.90..=1.10).contains(&denominator) {
+            return Err(StellaCompError::InvalidTransform(format!(
+                "homography corner denominator {denominator:.3} is outside MVP limits"
+            )));
+        }
     }
 
     Ok(())
@@ -798,11 +836,14 @@ mod tests {
             target_points.push(Point2f::new(x + 7.0, y - 4.0));
         }
 
-        let homography = estimate_homography_from_points(MatchedPointSet {
-            base_points,
-            target_points,
-            match_count: 5,
-        })
+        let homography = estimate_homography_from_points(
+            MatchedPointSet {
+                base_points,
+                target_points,
+                match_count: 5,
+            },
+            (220, 180),
+        )
         .expect("homography");
 
         assert!(
@@ -824,6 +865,20 @@ mod tests {
             (homography[5] - 4.0).abs() < 1.5,
             "y translation = {}",
             homography[5]
+        );
+    }
+
+    #[test]
+    fn homography_validation_rejects_strong_perspective_shift() {
+        let homography =
+            Mat::from_slice_2d(&[&[1.0, 0.0, 0.0], &[0.0, 1.0, 0.0], &[0.0008, 0.0, 1.0]])
+                .expect("homography mat");
+
+        let error = validate_homography(&homography, (220, 180)).expect_err("invalid homography");
+
+        assert!(
+            error.to_string().contains("homography perspective shift"),
+            "error = {error}"
         );
     }
 

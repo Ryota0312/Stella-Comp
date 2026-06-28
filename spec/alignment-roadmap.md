@@ -251,6 +251,7 @@ Local Warp
 - Rust core は同じ対応点列から `estimateAffinePartial2D` または `findHomography` を呼び分ける。
 - `ImageTransform` は affine 用の 2x3 行列と homography 用の 3x3 行列を返す。既存互換のため `affine` は残す。
 - ブラウザ合成では affine は Canvas 2D transform、homography は逆変換 + bilinear sampling で適用する。
+- homography は実験的方式のため、RANSAC 後にスケール範囲、画像全体に対する射影成分、四隅の分母変化を検証する。過大な射影変形は画面端のゴーストを作りやすいため `TRANSFORM_ESTIMATE_FAILED` warning と identity transform に落とす。
 - `POST /api/jobs` のサーバー側 fallback 合成は今回の対象外とし、preview alignment API とブラウザ側 preview/source 合成を優先する。
 
 ### 4. 比較評価の診断値を追加
