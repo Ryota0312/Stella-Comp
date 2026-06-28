@@ -70,7 +70,7 @@ export const uploadCopy = {
     },
     execution: {
       kicker: "実行",
-      title: "処理状況",
+      title: "合成設定",
       runClientStack: "プレビュー合成を再実行",
       uploadAndStack: "プレビュー合成を実行",
       runRawStack: "RAW現像して合成",
@@ -281,7 +281,7 @@ export const uploadCopy = {
     },
     execution: {
       kicker: "Execution",
-      title: "Process Status",
+      title: "Stack Settings",
       runClientStack: "Rerun Preview Stack",
       uploadAndStack: "Run Preview Stack",
       runRawStack: "Develop RAW and Stack",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { HeroMetrics } from "./components/HeroMetrics";
 import { JobStatusPanel } from "./components/JobStatusPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
@@ -11,14 +11,12 @@ import { usePreviewUpload } from "./hooks/usePreviewUpload";
 import { useUploadQueue } from "./hooks/useUploadQueue";
 import { useUnsavedWorkGuard } from "./hooks/useUnsavedWorkGuard";
 import {
-  clientCompositeStatusText,
   defaultLanguage,
   languages,
-  rawCompositeStatusText,
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { AlignmentMethod, SourceExportFormat, TimelineItem, TransformModel, WorkspaceStep } from "./types";
+import type { AlignmentMethod, SourceExportFormat, TransformModel, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
 const debugEnabled =
@@ -57,7 +55,6 @@ export function UploadWorkspace() {
     isDragging,
     items,
     previewBytes,
-    readyCount,
     setActiveId,
     setIsDragging,
     setItems,
@@ -133,67 +130,6 @@ export function UploadWorkspace() {
     enabled: hasSelectedFrames,
     message: copy.navigation.leaveConfirm,
   });
-
-  const jobTimeline = useMemo<TimelineItem[]>(
-    () =>
-      currentStep === "source"
-        ? [
-            {
-              label: copy.timeline.rawStack,
-              value: rawCompositeStatusText(rawCompositeStatus, language),
-              tone:
-                rawCompositeStatus === "failed"
-                  ? "warn"
-                  : rawCompositeStatus === "idle"
-                    ? "muted"
-                    : "active",
-            },
-            {
-              label: copy.timeline.sourceOutput,
-              value:
-                rawCompositeStatus === "completed" && resultLabel === sourceExportFormat
-                  ? copy.timeline.outputReady(formatLabel(resultLabel))
-                  : copy.timeline.waiting,
-              tone:
-                rawCompositeStatus === "completed" && resultLabel === sourceExportFormat
-                  ? "active"
-                  : "muted",
-            },
-          ]
-        : [
-            {
-              label: copy.timeline.selectedFrames,
-              value: copy.hero.frames(items.length),
-              tone: items.length > 0 ? "active" : "muted",
-            },
-            {
-              label: copy.timeline.previewGeneration,
-              value: copy.timeline.ready(readyCount),
-              tone: readyCount > 0 ? "active" : "muted",
-            },
-            {
-              label: copy.timeline.clientStack,
-              value: clientCompositeStatusText(clientCompositeStatus, language),
-              tone:
-                clientCompositeStatus === "failed"
-                  ? "warn"
-                  : clientCompositeStatus === "idle"
-                    ? "muted"
-                    : "active",
-            },
-          ],
-    [
-      clientCompositeStatus,
-      copy,
-      currentStep,
-      items.length,
-      language,
-      rawCompositeStatus,
-      readyCount,
-      resultLabel,
-      sourceExportFormat,
-    ],
-  );
 
   function handleSelectFrames() {
     inputRef.current?.click();
@@ -284,7 +220,6 @@ export function UploadWorkspace() {
         {currentStep === "preview" ? (
           <>
             <JobStatusPanel
-              canRunJob={canRunJob}
               alignmentMethod={alignmentMethod}
               transformModel={transformModel}
               compressionRatio={compressionRatio}
@@ -292,7 +227,7 @@ export function UploadWorkspace() {
               clientWarnings={clientWarnings}
               copy={copy}
               debugEnabled={debugEnabled}
-              isJobBusy={isJobBusy}
+              frameCount={items.length}
               job={job}
               jobError={jobError}
               language={language}
@@ -300,10 +235,8 @@ export function UploadWorkspace() {
               rawCompositeProgress={rawCompositeProgress}
               rawCompositeStatus={rawCompositeStatus}
               resultLabel={resultLabel}
-              runComposite={runComposite}
-              runRawComposite={runRawComposite}
               setSourceExportFormat={setSourceExportFormat}
-              showRawAction={false}
+              sourceExportEditable
               showSourceExportFormat
               sourceBytes={sourceBytes}
               sourceExportFormat={sourceExportFormat}
@@ -326,7 +259,6 @@ export function UploadWorkspace() {
                   </button>
                 </>
               }
-              timeline={jobTimeline}
               uploadError={uploadError}
               uploadSummary={uploadSummary}
             />
@@ -350,7 +282,6 @@ export function UploadWorkspace() {
         {currentStep === "source" ? (
           <>
             <JobStatusPanel
-              canRunJob={canRunJob}
               alignmentMethod={alignmentMethod}
               transformModel={transformModel}
               compressionRatio={compressionRatio}
@@ -358,7 +289,7 @@ export function UploadWorkspace() {
               clientWarnings={clientWarnings}
               copy={copy}
               debugEnabled={debugEnabled}
-              isJobBusy={isJobBusy}
+              frameCount={items.length}
               job={job}
               jobError={jobError}
               language={language}
@@ -366,23 +297,29 @@ export function UploadWorkspace() {
               rawCompositeProgress={rawCompositeProgress}
               rawCompositeStatus={rawCompositeStatus}
               resultLabel={resultLabel}
-              runComposite={runComposite}
-              runRawComposite={runRawComposite}
               setSourceExportFormat={setSourceExportFormat}
-              showPreviewAction={false}
               showSourceExportFormat
               sourceBytes={sourceBytes}
               sourceExportFormat={sourceExportFormat}
               stepActions={
-                <button
-                  type="button"
-                  className="secondary-action step-back-action"
-                  onClick={() => setCurrentStep("preview")}
-                >
-                  {copy.steps.backToPreview}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="secondary-action step-back-action"
+                    onClick={() => setCurrentStep("preview")}
+                  >
+                    {copy.steps.backToPreview}
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-action"
+                    disabled={!canRunJob || isJobBusy}
+                    onClick={runRawComposite}
+                  >
+                    {copy.execution.runRawStack}
+                  </button>
+                </>
               }
-              timeline={jobTimeline}
               uploadError={uploadError}
               uploadSummary={uploadSummary}
             />
@@ -405,8 +342,4 @@ export function UploadWorkspace() {
       </section>
     </main>
   );
-}
-
-function formatLabel(format: SourceExportFormat) {
-  return format === "jpeg" ? "JPEG" : format.toUpperCase();
 }

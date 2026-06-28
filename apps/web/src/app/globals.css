@@ -391,7 +391,7 @@ button {
 
 .upload-controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   gap: 12px;
   margin-top: 12px;
@@ -423,6 +423,7 @@ button {
 }
 
 .table-list {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding-right: 2px;
@@ -1042,7 +1043,7 @@ button {
   font-size: 0.82rem;
 }
 
-.job-step-actions {
+.panel-step-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -1050,6 +1051,10 @@ button {
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.panel-step-actions .step-forward-action {
+  min-width: min(100%, 220px);
 }
 
 .debug-panel {
@@ -1214,7 +1219,7 @@ button {
 
   .panel-header,
   .result-actions,
-  .job-step-actions,
+  .panel-step-actions,
   .table-row,
   .timeline-row,
   .result-row,
@@ -1225,6 +1230,15 @@ button {
 
   .upload-controls {
     grid-template-columns: 1fr;
+  }
+
+  .panel-step-actions {
+    justify-content: stretch;
+  }
+
+  .panel-step-actions .primary-action,
+  .panel-step-actions .secondary-action {
+    width: 100%;
   }
 
   .row-state {

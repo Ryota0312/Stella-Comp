@@ -5,7 +5,6 @@ import type {
   AlignmentMethod,
   RawCompositeStatus,
   SourceExportFormat,
-  TimelineItem,
   TransformModel,
 } from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
@@ -18,7 +17,6 @@ import {
 import { formatBytes } from "../utils";
 
 type JobStatusPanelProps = {
-  canRunJob: boolean;
   alignmentMethod: AlignmentMethod;
   transformModel: TransformModel;
   compressionRatio: number;
@@ -26,7 +24,7 @@ type JobStatusPanelProps = {
   clientWarnings: ProcessingWarning[];
   copy: UploadCopy;
   debugEnabled: boolean;
-  isJobBusy: boolean;
+  frameCount: number;
   job: JobSummary | null;
   jobError: string | null;
   language: Language;
@@ -34,22 +32,17 @@ type JobStatusPanelProps = {
   rawCompositeProgress: CompositeProgress | null;
   rawCompositeStatus: RawCompositeStatus;
   resultLabel: SourceExportFormat | null;
-  runComposite: () => Promise<void>;
-  runRawComposite: () => Promise<void>;
   setSourceExportFormat?: (format: SourceExportFormat) => void;
   stepActions?: ReactNode;
-  showPreviewAction?: boolean;
-  showRawAction?: boolean;
+  sourceExportEditable?: boolean;
   showSourceExportFormat?: boolean;
   sourceBytes: number;
   sourceExportFormat?: SourceExportFormat;
-  timeline: TimelineItem[];
   uploadError: string | null;
   uploadSummary: PreviewUploadSummary | null;
 };
 
 export function JobStatusPanel({
-  canRunJob,
   alignmentMethod,
   transformModel,
   compressionRatio,
@@ -57,7 +50,7 @@ export function JobStatusPanel({
   clientWarnings,
   copy,
   debugEnabled,
-  isJobBusy,
+  frameCount,
   job,
   jobError,
   language,
@@ -65,16 +58,12 @@ export function JobStatusPanel({
   rawCompositeProgress,
   rawCompositeStatus,
   resultLabel,
-  runComposite,
-  runRawComposite,
   setSourceExportFormat,
   stepActions,
-  showPreviewAction = true,
-  showRawAction = true,
+  sourceExportEditable = false,
   showSourceExportFormat = false,
   sourceBytes,
   sourceExportFormat = "tiff",
-  timeline,
   uploadError,
   uploadSummary,
 }: JobStatusPanelProps) {
@@ -100,38 +89,8 @@ export function JobStatusPanel({
           <p className="panel-kicker">{copy.execution.kicker}</p>
           <h2>{copy.execution.title}</h2>
         </div>
-        <div className="action-row">
-          {showPreviewAction ? (
-            <button
-              type="button"
-              className="primary-action"
-              disabled={!canRunJob || isJobBusy}
-              onClick={runComposite}
-            >
-              {uploadSummary ? copy.execution.runClientStack : copy.execution.uploadAndStack}
-            </button>
-          ) : null}
-          {showRawAction ? (
-            <button
-              type="button"
-              className="secondary-action"
-              disabled={!canRunJob || isJobBusy}
-              onClick={runRawComposite}
-            >
-              {copy.execution.runRawStack}
-            </button>
-          ) : null}
-        </div>
       </header>
-      <div className="timeline">
-        {timeline.map((item) => (
-          <div className="timeline-row" key={item.label}>
-            <span>{item.label}</span>
-            <span className={`timeline-state timeline-${item.tone}`}>{item.value}</span>
-          </div>
-        ))}
-      </div>
-      <div className="source-export-control">
+      <div className="source-export-control execution-summary">
         <div className="readonly-field">
           <span>{copy.execution.alignmentMethod}</span>
           <strong>{copy.execution.alignmentMethods[alignmentMethod]}</strong>
@@ -140,73 +99,38 @@ export function JobStatusPanel({
           <span>{copy.execution.transformModel}</span>
           <strong>{copy.execution.transformModels[transformModel]}</strong>
         </div>
+        <div className="readonly-field">
+          <span>{copy.timeline.selectedFrames}</span>
+          <strong>{copy.hero.frames(frameCount)}</strong>
+        </div>
       </div>
       {showSourceExportFormat ? (
         <div className="source-export-control">
-          <label className="field">
-            <span>{copy.execution.outputFormat}</span>
-            <select
-              value={sourceExportFormat}
-              disabled={isJobBusy || !setSourceExportFormat}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                setSourceExportFormat?.(event.currentTarget.value as SourceExportFormat)
-              }
-            >
-              <option value="tiff">{copy.execution.outputFormats.tiff}</option>
-              <option value="png">{copy.execution.outputFormats.png}</option>
-              <option value="jpeg">{copy.execution.outputFormats.jpeg}</option>
-            </select>
-          </label>
-          <p className="source-export-note">
-            {copy.execution.outputDisplay}: {copy.execution.outputDisplayPng} /{" "}
-            {copy.execution.outputExport}: {formatLabel(sourceExportFormat)}
-          </p>
-          <p className="source-export-note">{copy.execution.outputFormatNote}</p>
+          {sourceExportEditable ? (
+            <label className="field">
+              <span>{copy.execution.outputFormat}</span>
+              <select
+                value={sourceExportFormat}
+                disabled={!setSourceExportFormat}
+                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                  setSourceExportFormat?.(event.currentTarget.value as SourceExportFormat)
+                }
+              >
+                <option value="tiff">{copy.execution.outputFormats.tiff}</option>
+                <option value="png">{copy.execution.outputFormats.png}</option>
+                <option value="jpeg">{copy.execution.outputFormats.jpeg}</option>
+              </select>
+            </label>
+          ) : (
+            <div className="readonly-field">
+              <span>{copy.execution.outputFormat}</span>
+              <strong>{copy.execution.outputFormats[sourceExportFormat]}</strong>
+            </div>
+          )}
         </div>
       ) : null}
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
-      {clientCompositeStatus !== "idle" && clientCompositeStatus !== "failed" ? (
-        <p className="inline-success">
-          {clientCompositeStatusText(clientCompositeStatus, language)}
-        </p>
-      ) : null}
-      {rawCompositeStatus !== "idle" && rawCompositeStatus !== "failed" ? (
-        <p className="inline-success">
-          {copy.execution.rawStackStatus}: {rawCompositeStatusText(rawCompositeStatus, language)}
-        </p>
-      ) : null}
-      {rawCompositeProgress ? (
-        <div
-          className="progress-block"
-          role="progressbar"
-          aria-label={copy.execution.rawProgressLabel}
-          aria-valuemin={0}
-          aria-valuemax={rawCompositeProgress.total}
-          aria-valuenow={rawCompositeProgress.current}
-        >
-          <div className="progress-header">
-            <span>{copy.execution.rawProgressLabel}</span>
-            <strong>
-              {rawCompositeProgress.current} / {rawCompositeProgress.total}
-            </strong>
-          </div>
-          <div className="progress-bar" aria-hidden="true">
-            <div
-              className="progress-value"
-              style={{
-                width: `${Math.min(
-                  (rawCompositeProgress.current / rawCompositeProgress.total) * 100,
-                  100,
-                )}%`,
-              }}
-            />
-          </div>
-          <p className="progress-detail">
-            {rawCompositeStatusText(rawCompositeStatus, language)}: {rawCompositeProgress.label}
-          </p>
-        </div>
-      ) : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
       {clientWarnings.length ? (
         <div className="warning-list" aria-label={copy.execution.warningsLabel}>
@@ -242,11 +166,7 @@ export function JobStatusPanel({
           ) : null}
         </div>
       ) : null}
-      {stepActions ? <div className="job-step-actions">{stepActions}</div> : null}
+      {stepActions ? <div className="panel-step-actions">{stepActions}</div> : null}
     </section>
   );
-}
-
-function formatLabel(format: SourceExportFormat) {
-  return format === "jpeg" ? "JPEG" : format.toUpperCase();
 }

@@ -85,11 +85,13 @@ export function UploadQueuePanel({
           <h2>{copy.upload.title}</h2>
         </div>
         <div className="action-row">
+          {items.length > 0 ? (
+            <button type="button" className="primary-action" onClick={onSelectFrames}>
+              {copy.upload.selectFrames}
+            </button>
+          ) : null}
           <button type="button" className="secondary-action" onClick={clearQueue}>
             {copy.upload.clear}
-          </button>
-          <button type="button" className="primary-action" onClick={onSelectFrames}>
-            {copy.upload.selectFrames}
           </button>
         </div>
       </header>
@@ -151,14 +153,6 @@ export function UploadQueuePanel({
             <option value="homography">{copy.execution.transformModels.homography}</option>
           </select>
         </label>
-        <button
-          type="button"
-          className="primary-action step-forward-action"
-          disabled={!canStartPreview}
-          onClick={onStartPreview}
-        >
-          {copy.steps.startPreview}
-        </button>
       </div>
       <div className="table-list" role="table" aria-label={copy.upload.queuedImagesLabel}>
         {items.length === 0 ? (
@@ -189,6 +183,16 @@ export function UploadQueuePanel({
             </button>
           ))
         )}
+      </div>
+      <div className="panel-step-actions">
+        <button
+          type="button"
+          className="primary-action step-forward-action"
+          disabled={!canStartPreview}
+          onClick={onStartPreview}
+        >
+          {copy.steps.startPreview}
+        </button>
       </div>
     </section>
   );
