@@ -10,6 +10,7 @@ import type {
   QueueItem,
   RawCompositeStatus,
   SourceExportFormat,
+  TransformModel,
 } from "../types";
 import {
   estimatePreviewAlignments,
@@ -25,6 +26,7 @@ type UseCompositeJobOptions = {
   canRunJob: boolean;
   copy: UploadCopy;
   alignmentMethod: AlignmentMethod;
+  transformModel: TransformModel;
   items: QueueItem[];
   sourceExportFormat: SourceExportFormat;
   uploadPreviews: () => Promise<PreviewUploadSummary | null>;
@@ -35,6 +37,7 @@ type UseCompositeJobOptions = {
 export function useCompositeJob({
   activeId,
   alignmentMethod,
+  transformModel,
   canRunJob,
   copy,
   items,
@@ -146,12 +149,13 @@ export function useCompositeJob({
         summary.sessionId,
         baseImageIndex,
         alignmentMethod,
+        transformModel,
       );
       setLastAlignment(alignment);
       setClientWarnings(alignment.warnings ?? []);
       return alignment;
     },
-    [alignmentMethod],
+    [alignmentMethod, transformModel],
   );
 
   const runComposite = useCallback(async () => {
@@ -223,7 +227,8 @@ export function useCompositeJob({
       let transforms: ImageTransform[];
       if (
         lastAlignment?.sessionId === summary.sessionId &&
-        lastAlignment.alignmentMethod === alignmentMethod
+        lastAlignment.alignmentMethod === alignmentMethod &&
+        lastAlignment.transformModel === transformModel
       ) {
         transforms = lastAlignment.transforms;
       } else {
@@ -254,6 +259,7 @@ export function useCompositeJob({
   }, [
     baseIndexForJob,
     alignmentMethod,
+    transformModel,
     canRunJob,
     copy,
     estimateAlignment,

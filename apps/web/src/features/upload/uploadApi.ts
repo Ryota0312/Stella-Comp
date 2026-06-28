@@ -1,4 +1,4 @@
-import type { AlignmentMethod } from "./types";
+import type { AlignmentMethod, TransformModel } from "./types";
 
 export type PreviewUploadSummary = {
   sessionId: string;
@@ -30,6 +30,8 @@ export type JobSummary = {
 export type ImageTransform = {
   imageIndex: number;
   affine: number[];
+  homography?: number[];
+  transformModel: TransformModel;
   estimated: boolean;
 };
 
@@ -37,6 +39,7 @@ export type PreviewAlignmentSummary = {
   sessionId: string;
   baseImageIndex: number;
   alignmentMethod: AlignmentMethod;
+  transformModel: TransformModel;
   previewPaths: string[];
   transforms: ImageTransform[];
   warnings?: ProcessingWarning[];
@@ -93,14 +96,16 @@ export async function estimatePreviewAlignments(
   sessionId: string,
   baseImageIndex: number,
   alignmentMethod: AlignmentMethod,
+  transformModel: TransformModel,
 ): Promise<PreviewAlignmentSummary> {
-  const created = await createPreviewAlignmentJob(sessionId, baseImageIndex, alignmentMethod);
+  const created = await createPreviewAlignmentJob(sessionId, baseImageIndex, alignmentMethod, transformModel);
   const completed = await waitForPreviewAlignmentJob(created.alignmentJobId);
 
   return {
     sessionId: completed.sessionId,
     baseImageIndex: completed.baseImageIndex,
     alignmentMethod: completed.alignmentMethod,
+    transformModel: completed.transformModel,
     previewPaths: completed.previewPaths,
     transforms: completed.transforms,
     warnings: completed.warnings,
@@ -111,13 +116,14 @@ async function createPreviewAlignmentJob(
   sessionId: string,
   baseImageIndex: number,
   alignmentMethod: AlignmentMethod,
+  transformModel: TransformModel,
 ): Promise<PreviewAlignmentJobSummary> {
   const response = await fetch(`${apiBaseUrl()}/preview-alignments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ sessionId, baseImageIndex, alignmentMethod }),
+    body: JSON.stringify({ sessionId, baseImageIndex, alignmentMethod, transformModel }),
   });
 
   if (!response.ok) {

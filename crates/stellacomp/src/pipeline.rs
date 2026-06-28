@@ -3,7 +3,7 @@ use crate::imageproc::average_images;
 use crate::stars::{detect_stars, match_stars, StarPoint};
 use crate::utils::{convert_to_dynamic_image, dynamic_image_to_mat, mat_to_dynamic_image};
 use image::{DynamicImage, GenericImageView};
-use opencv::calib3d::{estimate_affine_partial_2d, RANSAC};
+use opencv::calib3d::{estimate_affine_partial_2d, find_homography, RANSAC};
 use opencv::core::{
     count_non_zero, DMatch, KeyPointTraitConst, Mat, MatTraitConst, Point2f, Scalar, Vector,
 };
@@ -45,6 +45,7 @@ pub struct EstimateTransformsInput {
     pub images: Vec<InputImage>,
     pub base_image_index: usize,
     pub alignment_method: AlignmentMethod,
+    pub transform_model: TransformModel,
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +58,8 @@ pub struct EstimateTransformsOutput {
 pub struct ImageTransform {
     pub image_index: usize,
     pub affine: [f64; 6],
+    pub homography: [f64; 9],
+    pub transform_model: TransformModel,
     pub estimated: bool,
 }
 
@@ -95,8 +98,25 @@ enum FeatureMethod {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TransformModel {
+pub enum TransformModel {
     Affine,
+    Homography,
+}
+
+impl TransformModel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TransformModel::Affine => "affine",
+            TransformModel::Homography => "homography",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Self {
+        match value {
+            "homography" => TransformModel::Homography,
+            _ => TransformModel::Affine,
+        }
+    }
 }
 
 impl AlignmentMethod {
@@ -105,10 +125,6 @@ impl AlignmentMethod {
             AlignmentMethod::Akaze => FeatureMethod::Akaze,
             AlignmentMethod::Stars => FeatureMethod::Stars,
         }
-    }
-
-    fn transform_model(self) -> TransformModel {
-        TransformModel::Affine
     }
 }
 
@@ -269,16 +285,25 @@ pub fn estimate_transforms(
             transforms.push(ImageTransform {
                 image_index: index,
                 affine: identity_affine(),
+                homography: identity_homography(),
+                transform_model: input.transform_model,
                 estimated: true,
             });
             continue;
         }
 
         let image = load_image(processing_path(input_image))?;
-        match estimate_affine_to_base(&base_image, &image, input.alignment_method) {
-            Ok(affine) => transforms.push(ImageTransform {
+        match estimate_transform_to_base(
+            &base_image,
+            &image,
+            input.alignment_method.feature_method(),
+            input.transform_model,
+        ) {
+            Ok(transform) => transforms.push(ImageTransform {
                 image_index: index,
-                affine,
+                affine: transform.affine_values(),
+                homography: transform.homography_values(),
+                transform_model: input.transform_model,
                 estimated: true,
             }),
             Err(error) => {
@@ -289,6 +314,8 @@ pub fn estimate_transforms(
                 transforms.push(ImageTransform {
                     image_index: index,
                     affine: identity_affine(),
+                    homography: identity_homography(),
+                    transform_model: input.transform_model,
                     estimated: false,
                 });
             }
@@ -359,14 +386,34 @@ fn estimate_affine_to_base(
         base_image,
         target_image,
         alignment_method.feature_method(),
-        alignment_method.transform_model(),
+        TransformModel::Affine,
     )? {
         EstimatedTransform::Affine(affine) => Ok(affine),
+        EstimatedTransform::Homography(_) => Err(StellaCompError::InvalidTransform(
+            "expected affine transform".to_string(),
+        )),
     }
 }
 
 enum EstimatedTransform {
     Affine([f64; 6]),
+    Homography([f64; 9]),
+}
+
+impl EstimatedTransform {
+    fn affine_values(&self) -> [f64; 6] {
+        match self {
+            EstimatedTransform::Affine(affine) => *affine,
+            EstimatedTransform::Homography(_) => identity_affine(),
+        }
+    }
+
+    fn homography_values(&self) -> [f64; 9] {
+        match self {
+            EstimatedTransform::Affine(affine) => affine_to_homography(*affine),
+            EstimatedTransform::Homography(homography) => *homography,
+        }
+    }
 }
 
 fn estimate_transform_to_base(
@@ -379,6 +426,9 @@ fn estimate_transform_to_base(
     match transform_model {
         TransformModel::Affine => Ok(EstimatedTransform::Affine(
             estimate_partial_affine_from_points(matched_points)?,
+        )),
+        TransformModel::Homography => Ok(EstimatedTransform::Homography(
+            estimate_homography_from_points(matched_points)?,
         )),
     }
 }
@@ -522,6 +572,49 @@ fn estimate_partial_affine_from_points(
     mat_to_affine(&affine)
 }
 
+fn estimate_homography_from_points(
+    matched_points: MatchedPointSet,
+) -> Result<[f64; 9], StellaCompError> {
+    if matched_points.match_count < 4 {
+        return Err(StellaCompError::InsufficientMatches {
+            count: matched_points.match_count,
+        });
+    }
+
+    let mut inliers = Mat::default();
+    let homography = find_homography(
+        &matched_points.target_points,
+        &matched_points.base_points,
+        &mut inliers,
+        RANSAC,
+        3.0,
+    )
+    .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+
+    if homography.empty() {
+        return Err(StellaCompError::InvalidTransform(
+            "RANSAC could not estimate a homography".to_string(),
+        ));
+    }
+
+    let inlier_count =
+        count_non_zero(&inliers).map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    if inlier_count < 4 {
+        return Err(StellaCompError::InsufficientInliers {
+            count: inlier_count,
+        });
+    }
+    if inlier_count as usize > matched_points.match_count {
+        return Err(StellaCompError::InvalidTransform(
+            "RANSAC reported more inliers than matches".to_string(),
+        ));
+    }
+
+    validate_homography(&homography)?;
+
+    mat_to_homography(&homography)
+}
+
 fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
     let a = *affine
         .at_2d::<f64>(0, 0)
@@ -534,6 +627,34 @@ fn validate_partial_affine(affine: &Mat) -> Result<(), StellaCompError> {
     if !(0.85..=1.15).contains(&scale) {
         return Err(StellaCompError::InvalidTransform(format!(
             "scale {scale:.3} is outside MVP limits"
+        )));
+    }
+
+    Ok(())
+}
+
+fn validate_homography(homography: &Mat) -> Result<(), StellaCompError> {
+    let bottom_right = *homography
+        .at_2d::<f64>(2, 2)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    if bottom_right.abs() <= f64::EPSILON {
+        return Err(StellaCompError::InvalidTransform(
+            "homography normalization term is zero".to_string(),
+        ));
+    }
+
+    let a = *homography
+        .at_2d::<f64>(0, 0)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+        / bottom_right;
+    let d = *homography
+        .at_2d::<f64>(1, 1)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+        / bottom_right;
+    let scale = (a.abs() + d.abs()) / 2.0;
+    if !(0.70..=1.30).contains(&scale) {
+        return Err(StellaCompError::InvalidTransform(format!(
+            "homography scale {scale:.3} is outside MVP limits"
         )));
     }
 
@@ -563,8 +684,65 @@ fn mat_to_affine(affine: &Mat) -> Result<[f64; 6], StellaCompError> {
     ])
 }
 
+fn mat_to_homography(homography: &Mat) -> Result<[f64; 9], StellaCompError> {
+    let bottom_right = *homography
+        .at_2d::<f64>(2, 2)
+        .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
+    if bottom_right.abs() <= f64::EPSILON {
+        return Err(StellaCompError::InvalidTransform(
+            "homography normalization term is zero".to_string(),
+        ));
+    }
+
+    Ok([
+        *homography
+            .at_2d::<f64>(0, 0)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(0, 1)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(0, 2)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(1, 0)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(1, 1)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(1, 2)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(2, 0)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        *homography
+            .at_2d::<f64>(2, 1)
+            .map_err(|error| StellaCompError::OpenCv(error.to_string()))?
+            / bottom_right,
+        1.0,
+    ])
+}
+
 fn identity_affine() -> [f64; 6] {
     [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+}
+
+fn identity_homography() -> [f64; 9] {
+    [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+}
+
+fn affine_to_homography(affine: [f64; 6]) -> [f64; 9] {
+    [
+        affine[0], affine[1], affine[2], affine[3], affine[4], affine[5], 0.0, 0.0, 1.0,
+    ]
 }
 
 #[cfg(test)]
@@ -602,6 +780,50 @@ mod tests {
             (affine[5] - 4.0).abs() < 1.5,
             "y translation = {}",
             affine[5]
+        );
+    }
+
+    #[test]
+    fn star_homography_estimates_translation() {
+        let mut base_points: Vector<Point2f> = Vector::new();
+        let mut target_points: Vector<Point2f> = Vector::new();
+        for (x, y) in [
+            (45.0, 42.0),
+            (150.0, 36.0),
+            (172.0, 104.0),
+            (62.0, 125.0),
+            (198.0, 148.0),
+        ] {
+            base_points.push(Point2f::new(x, y));
+            target_points.push(Point2f::new(x + 7.0, y - 4.0));
+        }
+
+        let homography = estimate_homography_from_points(MatchedPointSet {
+            base_points,
+            target_points,
+            match_count: 5,
+        })
+        .expect("homography");
+
+        assert!(
+            (homography[0] - 1.0).abs() < 0.05,
+            "x scale = {}",
+            homography[0]
+        );
+        assert!(
+            (homography[4] - 1.0).abs() < 0.05,
+            "y scale = {}",
+            homography[4]
+        );
+        assert!(
+            (homography[2] + 7.0).abs() < 1.5,
+            "x translation = {}",
+            homography[2]
+        );
+        assert!(
+            (homography[5] - 4.0).abs() < 1.5,
+            "y translation = {}",
+            homography[5]
         );
     }
 

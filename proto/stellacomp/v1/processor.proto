@@ -31,6 +31,7 @@ message EstimateTransformsRequest {
   repeated InputImage images = 1;
   int32 base_image_index = 2;
   string alignment_method = 3;
+  string transform_model = 4;
 }
 
 message EstimateTransformsResponse {
@@ -43,6 +44,9 @@ message ImageTransform {
   // 2x3 affine matrix mapping this image's preview pixels into the base preview coordinate system.
   repeated double affine = 2;
   bool estimated = 3;
+  string transform_model = 4;
+  // 3x3 homography matrix mapping this image's preview pixels into the base preview coordinate system.
+  repeated double homography = 5;
 }
 
 message ProcessingWarning {

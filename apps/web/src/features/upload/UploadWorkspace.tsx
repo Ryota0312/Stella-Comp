@@ -18,7 +18,7 @@ import {
   type Language,
   uploadCopy,
 } from "./i18n";
-import type { AlignmentMethod, SourceExportFormat, TimelineItem, WorkspaceStep } from "./types";
+import type { AlignmentMethod, SourceExportFormat, TimelineItem, TransformModel, WorkspaceStep } from "./types";
 
 const languageStorageKey = "stella-comp-language";
 const debugEnabled =
@@ -36,6 +36,7 @@ export function UploadWorkspace() {
   });
   const [currentStep, setCurrentStep] = useState<WorkspaceStep>("upload");
   const [alignmentMethod, setAlignmentMethod] = useState<AlignmentMethod>("stars");
+  const [transformModel, setTransformModel] = useState<TransformModel>("affine");
   const [sourceExportFormat, setSourceExportFormat] = useState<SourceExportFormat>("tiff");
   const inputRef = useRef<HTMLInputElement>(null);
   const resetUploadStateRef = useRef<() => void>(() => undefined);
@@ -111,6 +112,7 @@ export function UploadWorkspace() {
   } = useCompositeJob({
     activeId,
     alignmentMethod,
+    transformModel,
     canRunJob,
     copy,
     items,
@@ -210,6 +212,19 @@ export function UploadWorkspace() {
     [alignmentMethod],
   );
 
+  const handleSetTransformModel = useCallback(
+    (model: TransformModel) => {
+      if (model === transformModel) {
+        return;
+      }
+
+      setTransformModel(model);
+      setCurrentStep("upload");
+      clearJobStateRef.current(false);
+    },
+    [transformModel],
+  );
+
   const handleStartPreview = useCallback(() => {
     if (!canStartPreview) {
       return;
@@ -245,6 +260,7 @@ export function UploadWorkspace() {
             <UploadQueuePanel
               activeItem={activeItem}
               alignmentMethod={alignmentMethod}
+              transformModel={transformModel}
               canStartPreview={canStartPreview}
               clearQueue={clearQueue}
               copy={copy}
@@ -256,6 +272,7 @@ export function UploadWorkspace() {
               onSelectFrames={handleSelectFrames}
               onStartPreview={handleStartPreview}
               setAlignmentMethod={handleSetAlignmentMethod}
+              setTransformModel={handleSetTransformModel}
               setActiveId={setActiveId}
               setIsDragging={setIsDragging}
             />
@@ -269,6 +286,7 @@ export function UploadWorkspace() {
             <JobStatusPanel
               canRunJob={canRunJob}
               alignmentMethod={alignmentMethod}
+              transformModel={transformModel}
               compressionRatio={compressionRatio}
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}
@@ -334,6 +352,7 @@ export function UploadWorkspace() {
             <JobStatusPanel
               canRunJob={canRunJob}
               alignmentMethod={alignmentMethod}
+              transformModel={transformModel}
               compressionRatio={compressionRatio}
               clientCompositeStatus={clientCompositeStatus}
               clientWarnings={clientWarnings}

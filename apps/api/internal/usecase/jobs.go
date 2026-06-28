@@ -130,6 +130,7 @@ func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request Esti
 		return nil, err
 	}
 	alignmentMethod := NormalizeAlignmentMethod(request.AlignmentMethod)
+	transformModel := NormalizeTransformModel(request.TransformModel)
 
 	alignmentJobID := usecase.NewID()
 	now := time.Now().UTC()
@@ -139,13 +140,14 @@ func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request Esti
 		SessionID:       sessionID,
 		BaseImageIndex:  request.BaseImageIndex,
 		AlignmentMethod: alignmentMethod,
+		TransformModel:  transformModel,
 		PreviewPaths:    previewPaths,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
 	usecase.AlignmentJobs.Put(alignmentJob)
 
-	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex, alignmentMethod)
+	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex, alignmentMethod, transformModel)
 
 	return alignmentJob, nil
 }
@@ -243,7 +245,7 @@ func (usecase *PreviewJobs) runJob(ctx context.Context, jobID string, previewPat
 	})
 }
 
-func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, images []*stellacompv1.InputImage, baseImageIndex int, alignmentMethod string) {
+func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, images []*stellacompv1.InputImage, baseImageIndex int, alignmentMethod string, transformModel string) {
 	usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
 		job.Status = "running"
 		job.UpdatedAt = time.Now().UTC()
@@ -253,6 +255,7 @@ func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, i
 		Images:          images,
 		BaseImageIndex:  int32(baseImageIndex),
 		AlignmentMethod: alignmentMethod,
+		TransformModel:  transformModel,
 	})
 	if err != nil {
 		usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
@@ -280,13 +283,24 @@ func NormalizeAlignmentMethod(rawMethod string) string {
 	}
 }
 
+func NormalizeTransformModel(rawModel string) string {
+	switch strings.TrimSpace(rawModel) {
+	case "homography":
+		return "homography"
+	default:
+		return "affine"
+	}
+}
+
 func ImageTransformsFromProto(protoTransforms []*stellacompv1.ImageTransform) []ImageTransform {
 	transforms := make([]ImageTransform, 0, len(protoTransforms))
 	for _, transform := range protoTransforms {
 		transforms = append(transforms, ImageTransform{
-			ImageIndex: transform.GetImageIndex(),
-			Affine:     append([]float64(nil), transform.GetAffine()...),
-			Estimated:  transform.GetEstimated(),
+			ImageIndex:     transform.GetImageIndex(),
+			Affine:         append([]float64(nil), transform.GetAffine()...),
+			Homography:     append([]float64(nil), transform.GetHomography()...),
+			TransformModel: NormalizeTransformModel(transform.GetTransformModel()),
+			Estimated:      transform.GetEstimated(),
 		})
 	}
 

@@ -206,6 +206,7 @@ type EstimateTransformsRequest struct {
 	Images          []*InputImage          `protobuf:"bytes,1,rep,name=images,proto3" json:"images,omitempty"`
 	BaseImageIndex  int32                  `protobuf:"varint,2,opt,name=base_image_index,json=baseImageIndex,proto3" json:"base_image_index,omitempty"`
 	AlignmentMethod string                 `protobuf:"bytes,3,opt,name=alignment_method,json=alignmentMethod,proto3" json:"alignment_method,omitempty"`
+	TransformModel  string                 `protobuf:"bytes,4,opt,name=transform_model,json=transformModel,proto3" json:"transform_model,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -257,6 +258,13 @@ func (x *EstimateTransformsRequest) GetBaseImageIndex() int32 {
 func (x *EstimateTransformsRequest) GetAlignmentMethod() string {
 	if x != nil {
 		return x.AlignmentMethod
+	}
+	return ""
+}
+
+func (x *EstimateTransformsRequest) GetTransformModel() string {
+	if x != nil {
+		return x.TransformModel
 	}
 	return ""
 }
@@ -317,8 +325,11 @@ type ImageTransform struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	ImageIndex uint32                 `protobuf:"varint,1,opt,name=image_index,json=imageIndex,proto3" json:"image_index,omitempty"`
 	// 2x3 affine matrix mapping this image's preview pixels into the base preview coordinate system.
-	Affine        []float64 `protobuf:"fixed64,2,rep,packed,name=affine,proto3" json:"affine,omitempty"`
-	Estimated     bool      `protobuf:"varint,3,opt,name=estimated,proto3" json:"estimated,omitempty"`
+	Affine         []float64 `protobuf:"fixed64,2,rep,packed,name=affine,proto3" json:"affine,omitempty"`
+	Estimated      bool      `protobuf:"varint,3,opt,name=estimated,proto3" json:"estimated,omitempty"`
+	TransformModel string    `protobuf:"bytes,4,opt,name=transform_model,json=transformModel,proto3" json:"transform_model,omitempty"`
+	// 3x3 homography matrix mapping this image's preview pixels into the base preview coordinate system.
+	Homography    []float64 `protobuf:"fixed64,5,rep,packed,name=homography,proto3" json:"homography,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -372,6 +383,20 @@ func (x *ImageTransform) GetEstimated() bool {
 		return x.Estimated
 	}
 	return false
+}
+
+func (x *ImageTransform) GetTransformModel() string {
+	if x != nil {
+		return x.TransformModel
+	}
+	return ""
+}
+
+func (x *ImageTransform) GetHomography() []float64 {
+	if x != nil {
+		return x.Homography
+	}
+	return nil
 }
 
 type ProcessingWarning struct {
@@ -499,21 +524,26 @@ const file_stellacomp_v1_processor_proto_rawDesc = "" +
 	"\x17AlignAndAverageResponse\x12\x1f\n" +
 	"\voutput_path\x18\x01 \x01(\tR\n" +
 	"outputPath\x12<\n" +
-	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"\xa3\x01\n" +
+	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"\xcc\x01\n" +
 	"\x19EstimateTransformsRequest\x121\n" +
 	"\x06images\x18\x01 \x03(\v2\x19.stellacomp.v1.InputImageR\x06images\x12(\n" +
 	"\x10base_image_index\x18\x02 \x01(\x05R\x0ebaseImageIndex\x12)\n" +
-	"\x10alignment_method\x18\x03 \x01(\tR\x0falignmentMethod\"\x99\x01\n" +
+	"\x10alignment_method\x18\x03 \x01(\tR\x0falignmentMethod\x12'\n" +
+	"\x0ftransform_model\x18\x04 \x01(\tR\x0etransformModel\"\x99\x01\n" +
 	"\x1aEstimateTransformsResponse\x12=\n" +
 	"\n" +
 	"transforms\x18\x01 \x03(\v2\x1d.stellacomp.v1.ImageTransformR\n" +
 	"transforms\x12<\n" +
-	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"g\n" +
+	"\bwarnings\x18\x02 \x03(\v2 .stellacomp.v1.ProcessingWarningR\bwarnings\"\xb0\x01\n" +
 	"\x0eImageTransform\x12\x1f\n" +
 	"\vimage_index\x18\x01 \x01(\rR\n" +
 	"imageIndex\x12\x16\n" +
 	"\x06affine\x18\x02 \x03(\x01R\x06affine\x12\x1c\n" +
-	"\testimated\x18\x03 \x01(\bR\testimated\"A\n" +
+	"\testimated\x18\x03 \x01(\bR\testimated\x12'\n" +
+	"\x0ftransform_model\x18\x04 \x01(\tR\x0etransformModel\x12\x1e\n" +
+	"\n" +
+	"homography\x18\x05 \x03(\x01R\n" +
+	"homography\"A\n" +
 	"\x11ProcessingWarning\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"9\n" +

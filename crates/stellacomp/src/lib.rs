@@ -7,5 +7,5 @@ pub mod utils;
 pub use pipeline::{
     align_and_average, estimate_transforms, AlignAndAverageInput, AlignAndAverageOutput,
     AlignmentMethod, EstimateTransformsInput, EstimateTransformsOutput, ImageSize, ImageTransform,
-    InputImage, ProcessingWarning, StellaCompError,
+    InputImage, ProcessingWarning, StellaCompError, TransformModel,
 };

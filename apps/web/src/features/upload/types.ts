@@ -79,6 +79,8 @@ export type SourceExportFormat = "tiff" | "png" | "jpeg";
 
 export type AlignmentMethod = "stars" | "akaze";
 
+export type TransformModel = "affine" | "homography";
+
 export type CompositeOutput = {
   previewBlob: Blob;
   referencePreviewBlob?: Blob;

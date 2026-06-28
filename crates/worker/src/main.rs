@@ -77,6 +77,7 @@ impl ImageProcessor for WorkerService {
                 .collect(),
             base_image_index,
             alignment_method: stellacomp::AlignmentMethod::from_wire(&request.alignment_method),
+            transform_model: stellacomp::TransformModel::from_wire(&request.transform_model),
         };
 
         let output = stellacomp::estimate_transforms(input)
@@ -89,6 +90,8 @@ impl ImageProcessor for WorkerService {
                 .map(|transform| ImageTransform {
                     image_index: transform.image_index as u32,
                     affine: transform.affine.to_vec(),
+                    transform_model: transform.transform_model.as_str().to_string(),
+                    homography: transform.homography.to_vec(),
                     estimated: transform.estimated,
                 })
                 .collect(),

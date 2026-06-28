@@ -242,6 +242,17 @@ Local Warp
 - 成功時は 3x3 行列、失敗時は既存と同様に warning + fallback できる方針にする。
 - この段階では homography の UI 選択肢、Protocol Buffers の 3x3 行列返却、Canvas 側の homography 適用はまだ実装しない。
 
+## 次の実装プラン: Homography を Web まで追加
+
+次の実装では、検出方式 `stars` / `akaze` と変換モデル `affine` / `homography` を API と Web UI でも分けて扱う。標準は `stars + affine` のまま維持し、`homography` は実験的な高精度候補として選択できるようにする。
+
+- Web UI のアップロード画面で変換モデルを選択する。通常表示は `標準（アフィン）` / `高精度候補（ホモグラフィ）` とし、debug では raw 値も表示する。
+- HTTP JSON と Protocol Buffers に `transformModel` / `transform_model` を追加する。未指定または未知値は `affine` として扱う。
+- Rust core は同じ対応点列から `estimateAffinePartial2D` または `findHomography` を呼び分ける。
+- `ImageTransform` は affine 用の 2x3 行列と homography 用の 3x3 行列を返す。既存互換のため `affine` は残す。
+- ブラウザ合成では affine は Canvas 2D transform、homography は逆変換 + bilinear sampling で適用する。
+- `POST /api/jobs` のサーバー側 fallback 合成は今回の対象外とし、preview alignment API とブラウザ側 preview/source 合成を優先する。
+
 ### 4. 比較評価の診断値を追加
 
 - 平均残差

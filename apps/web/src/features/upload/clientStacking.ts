@@ -1,4 +1,5 @@
 import type { CompositeOutput, QueueItem } from "./types";
+import { renderTransformedImage } from "./transformRendering";
 import type { ImageTransform } from "./uploadApi";
 
 type StackPreviewOptions = {
@@ -54,12 +55,16 @@ export async function stackPreviewImages({
   for (const [index, item] of orderedItems.entries()) {
     const loadedImage = await loadCanvasImage(item.previewBlob as Blob);
     const transform = transformsByIndex.get(index);
-    const affine = transform?.affine.length === 6 ? transform.affine : identityAffine();
 
-    sampleContext.setTransform(1, 0, 0, 1, 0, 0);
-    sampleContext.clearRect(0, 0, width, height);
-    sampleContext.setTransform(affine[0], affine[3], affine[1], affine[4], affine[2], affine[5]);
-    sampleContext.drawImage(loadedImage.image, 0, 0);
+    renderTransformedImage(
+      sampleContext,
+      loadedImage.image,
+      loadedImage.width,
+      loadedImage.height,
+      width,
+      height,
+      transform ?? {},
+    );
     loadedImage.close();
 
     const { data } = sampleContext.getImageData(0, 0, width, height);
@@ -104,10 +109,6 @@ export async function stackPreviewImages({
     downloadFileName: "stella-comp-preview-stack.png",
     label: "png",
   };
-}
-
-function identityAffine() {
-  return [1, 0, 0, 0, 1, 0];
 }
 
 async function loadCanvasImage(blob: Blob): Promise<LoadedCanvasImage> {

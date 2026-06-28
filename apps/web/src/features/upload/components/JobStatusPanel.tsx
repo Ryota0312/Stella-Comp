@@ -6,6 +6,7 @@ import type {
   RawCompositeStatus,
   SourceExportFormat,
   TimelineItem,
+  TransformModel,
 } from "../types";
 import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
 import {
@@ -19,6 +20,7 @@ import { formatBytes } from "../utils";
 type JobStatusPanelProps = {
   canRunJob: boolean;
   alignmentMethod: AlignmentMethod;
+  transformModel: TransformModel;
   compressionRatio: number;
   clientCompositeStatus: ClientCompositeStatus;
   clientWarnings: ProcessingWarning[];
@@ -49,6 +51,7 @@ type JobStatusPanelProps = {
 export function JobStatusPanel({
   canRunJob,
   alignmentMethod,
+  transformModel,
   compressionRatio,
   clientCompositeStatus,
   clientWarnings,
@@ -84,6 +87,7 @@ export function JobStatusPanel({
         [copy.debug.clientStatus, clientCompositeStatusText(clientCompositeStatus, language)],
         [copy.debug.rawStatus, rawCompositeStatusText(rawCompositeStatus, language)],
         [copy.debug.alignmentMethod, alignmentMethod],
+        [copy.debug.transformModel, transformModel],
         [copy.debug.output, resultLabel ?? "-"],
         [copy.debug.warnings, `${clientWarnings.length}`],
       ]
@@ -131,6 +135,10 @@ export function JobStatusPanel({
         <div className="readonly-field">
           <span>{copy.execution.alignmentMethod}</span>
           <strong>{copy.execution.alignmentMethods[alignmentMethod]}</strong>
+        </div>
+        <div className="readonly-field">
+          <span>{copy.execution.transformModel}</span>
+          <strong>{copy.execution.transformModels[transformModel]}</strong>
         </div>
       </div>
       {showSourceExportFormat ? (

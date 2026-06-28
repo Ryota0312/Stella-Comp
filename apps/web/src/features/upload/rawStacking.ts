@@ -1,6 +1,7 @@
 import { rawExtensions } from "./constants";
 import { developRawWithLibRaw } from "./previewGeneration";
 import { encodeTiffRgb16 } from "./tiffEncoding";
+import { previewHomographyToSourceHomography, renderTransformedImage } from "./transformRendering";
 import type { CompositeOutput, QueueItem, SourceExportFormat } from "./types";
 import type { ImageTransform } from "./uploadApi";
 
@@ -77,31 +78,33 @@ export async function stackSourceImages({
     const targetPreviewSize = previewSize(item);
     const transform = transformsByIndex.get(index);
     const affine = transform?.affine.length === 6 ? transform.affine : identityAffine();
-    const sourceAffine =
+    const sizeMapping = {
+      basePreviewHeight: basePreviewSize.height,
+      basePreviewWidth: basePreviewSize.width,
+      baseSourceHeight: height,
+      baseSourceWidth: width,
+      targetPreviewHeight: targetPreviewSize.height,
+      targetPreviewWidth: targetPreviewSize.width,
+      targetSourceHeight: source.height,
+      targetSourceWidth: source.width,
+    };
+    const sourceTransform =
       index === baseImageIndex
-        ? identityAffine()
-        : previewAffineToSourceAffine(affine, {
-            basePreviewHeight: basePreviewSize.height,
-            basePreviewWidth: basePreviewSize.width,
-            baseSourceHeight: height,
-            baseSourceWidth: width,
-            targetPreviewHeight: targetPreviewSize.height,
-            targetPreviewWidth: targetPreviewSize.width,
-            targetSourceHeight: source.height,
-            targetSourceWidth: source.width,
-          });
+        ? {
+            affine: identityAffine(),
+            homography: identityHomography(),
+            transformModel: transform?.transformModel ?? "affine",
+          }
+        : {
+            affine: previewAffineToSourceAffine(affine, sizeMapping),
+            homography:
+              transform?.homography?.length === 9
+                ? previewHomographyToSourceHomography(transform.homography, sizeMapping)
+                : identityHomography(),
+            transformModel: transform?.transformModel ?? "affine",
+          };
 
-    sampleContext.setTransform(1, 0, 0, 1, 0, 0);
-    sampleContext.clearRect(0, 0, width, height);
-    sampleContext.setTransform(
-      sourceAffine[0],
-      sourceAffine[3],
-      sourceAffine[1],
-      sourceAffine[4],
-      sourceAffine[2],
-      sourceAffine[5],
-    );
-    sampleContext.drawImage(source.image, 0, 0);
+    renderTransformedImage(sampleContext, source.image, source.width, source.height, width, height, sourceTransform);
     source.close();
 
     if (index === baseImageIndex) {
@@ -277,6 +280,10 @@ function previewSize(item: QueueItem) {
 
 function identityAffine() {
   return [1, 0, 0, 0, 1, 0];
+}
+
+function identityHomography() {
+  return [1, 0, 0, 0, 1, 0, 0, 0, 1];
 }
 
 async function loadSourceImage(item: QueueItem): Promise<LoadedSourceImage> {

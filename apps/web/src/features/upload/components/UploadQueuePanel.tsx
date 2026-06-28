@@ -5,11 +5,12 @@ import {
   type Language,
   type UploadCopy,
 } from "../i18n";
-import type { AlignmentMethod, QueueItem } from "../types";
+import type { AlignmentMethod, QueueItem, TransformModel } from "../types";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
   alignmentMethod: AlignmentMethod;
+  transformModel: TransformModel;
   canStartPreview: boolean;
   clearQueue: () => void;
   copy: UploadCopy;
@@ -21,6 +22,7 @@ type UploadQueuePanelProps = {
   onSelectFrames: () => void;
   onStartPreview: () => void;
   setAlignmentMethod: (method: AlignmentMethod) => void;
+  setTransformModel: (model: TransformModel) => void;
   setActiveId: (id: string) => void;
   setIsDragging: (isDragging: boolean) => void;
 };
@@ -28,6 +30,7 @@ type UploadQueuePanelProps = {
 export function UploadQueuePanel({
   activeItem,
   alignmentMethod,
+  transformModel,
   canStartPreview,
   clearQueue,
   copy,
@@ -39,6 +42,7 @@ export function UploadQueuePanel({
   onSelectFrames,
   onStartPreview,
   setAlignmentMethod,
+  setTransformModel,
   setActiveId,
   setIsDragging,
 }: UploadQueuePanelProps) {
@@ -108,7 +112,7 @@ export function UploadQueuePanel({
         <span>{copy.upload.dropDescription}</span>
       </div>
       <div className="upload-controls">
-        <label className="field">
+        <label className="field upload-reference-control">
           <span>{copy.upload.referenceFrame}</span>
           <select value={activeItem?.id ?? ""} onChange={(event) => setActiveId(event.target.value)}>
             <option value="" disabled>
@@ -121,7 +125,7 @@ export function UploadQueuePanel({
             ))}
           </select>
         </label>
-        <label className="field">
+        <label className="field upload-method-control">
           <span>{copy.execution.alignmentMethod}</span>
           <select
             value={alignmentMethod}
@@ -131,6 +135,18 @@ export function UploadQueuePanel({
           >
             <option value="stars">{copy.execution.alignmentMethods.stars}</option>
             <option value="akaze">{copy.execution.alignmentMethods.akaze}</option>
+          </select>
+        </label>
+        <label className="field upload-method-control">
+          <span>{copy.execution.transformModel}</span>
+          <select
+            value={transformModel}
+            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+              setTransformModel(event.currentTarget.value as TransformModel)
+            }
+          >
+            <option value="affine">{copy.execution.transformModels.affine}</option>
+            <option value="homography">{copy.execution.transformModels.homography}</option>
           </select>
         </label>
         <button

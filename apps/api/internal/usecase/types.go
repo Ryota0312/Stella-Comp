@@ -23,6 +23,7 @@ type EstimateTransformsRequest struct {
 	PreviewPaths    []string `json:"previewPaths"`
 	BaseImageIndex  int      `json:"baseImageIndex"`
 	AlignmentMethod string   `json:"alignmentMethod"`
+	TransformModel  string   `json:"transformModel"`
 }
 
 type AlignmentJobResponse struct {
@@ -31,6 +32,7 @@ type AlignmentJobResponse struct {
 	SessionID       string              `json:"sessionId"`
 	BaseImageIndex  int                 `json:"baseImageIndex"`
 	AlignmentMethod string              `json:"alignmentMethod"`
+	TransformModel  string              `json:"transformModel"`
 	PreviewPaths    []string            `json:"previewPaths"`
 	Transforms      []ImageTransform    `json:"transforms,omitempty"`
 	Error           string              `json:"error,omitempty"`
@@ -40,9 +42,11 @@ type AlignmentJobResponse struct {
 }
 
 type ImageTransform struct {
-	ImageIndex uint32    `json:"imageIndex"`
-	Affine     []float64 `json:"affine"`
-	Estimated  bool      `json:"estimated"`
+	ImageIndex     uint32    `json:"imageIndex"`
+	Affine         []float64 `json:"affine"`
+	Homography     []float64 `json:"homography,omitempty"`
+	TransformModel string    `json:"transformModel"`
+	Estimated      bool      `json:"estimated"`
 }
 
 type JobResponse struct {

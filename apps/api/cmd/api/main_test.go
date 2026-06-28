@@ -56,9 +56,11 @@ func (processor *fakeProcessor) EstimateTransforms(ctx context.Context, request 
 	transforms := make([]*stellacompv1.ImageTransform, 0, len(request.GetImages()))
 	for index := range request.GetImages() {
 		transforms = append(transforms, &stellacompv1.ImageTransform{
-			ImageIndex: uint32(index),
-			Affine:     []float64{1, 0, float64(index), 0, 1, 0},
-			Estimated:  true,
+			ImageIndex:     uint32(index),
+			Affine:         []float64{1, 0, float64(index), 0, 1, 0},
+			Homography:     []float64{1, 0, float64(index), 0, 1, 0, 0, 0, 1},
+			TransformModel: request.GetTransformModel(),
+			Estimated:      true,
 		})
 	}
 
@@ -260,7 +262,7 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	processor := &fakeProcessor{}
 	router := newRouterWithProcessor(dataDir, processor)
 
-	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1,"alignmentMethod":"stars"}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"session-1","baseImageIndex":1,"alignmentMethod":"stars","transformModel":"homography"}`))
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 
@@ -279,6 +281,9 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	if created.AlignmentMethod != "stars" {
 		t.Fatalf("created alignment method = %q", created.AlignmentMethod)
 	}
+	if created.TransformModel != "homography" {
+		t.Fatalf("created transform model = %q", created.TransformModel)
+	}
 
 	body := waitForAlignmentJobStatus(t, router, created.AlignmentJobID, "completed")
 	if processor.transformRequest.GetBaseImageIndex() != 1 {
@@ -286,6 +291,9 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	}
 	if processor.transformRequest.GetAlignmentMethod() != "stars" {
 		t.Fatalf("worker alignment method = %q", processor.transformRequest.GetAlignmentMethod())
+	}
+	if processor.transformRequest.GetTransformModel() != "homography" {
+		t.Fatalf("worker transform model = %q", processor.transformRequest.GetTransformModel())
 	}
 	if len(processor.transformRequest.GetImages()) != 2 {
 		t.Fatalf("worker images = %d", len(processor.transformRequest.GetImages()))
@@ -297,11 +305,20 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	if body.Transforms[1].Affine[2] != 1 {
 		t.Fatalf("second transform = %#v", body.Transforms[1])
 	}
+	if body.Transforms[1].Homography[2] != 1 {
+		t.Fatalf("second homography = %#v", body.Transforms[1])
+	}
+	if body.Transforms[1].TransformModel != "homography" {
+		t.Fatalf("second transform model = %#v", body.Transforms[1])
+	}
 	if len(body.Warnings) != 1 || body.Warnings[0].Code != "TEST_TRANSFORM_WARNING" {
 		t.Fatalf("warnings = %#v", body.Warnings)
 	}
 	if body.AlignmentMethod != "stars" {
 		t.Fatalf("completed alignment method = %q", body.AlignmentMethod)
+	}
+	if body.TransformModel != "homography" {
+		t.Fatalf("completed transform model = %q", body.TransformModel)
 	}
 }
 
@@ -339,6 +356,9 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	}
 	if job.AlignmentMethod != "akaze" {
 		t.Fatalf("default alignment method = %q", job.AlignmentMethod)
+	}
+	if job.TransformModel != "affine" {
+		t.Fatalf("default transform model = %q", job.TransformModel)
 	}
 }
 
