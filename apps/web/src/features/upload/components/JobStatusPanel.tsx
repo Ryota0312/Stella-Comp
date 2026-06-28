@@ -34,7 +34,6 @@ type JobStatusPanelProps = {
   resultLabel: SourceExportFormat | null;
   runComposite: () => Promise<void>;
   runRawComposite: () => Promise<void>;
-  setAlignmentMethod: (method: AlignmentMethod) => void;
   setSourceExportFormat?: (format: SourceExportFormat) => void;
   stepActions?: ReactNode;
   showPreviewAction?: boolean;
@@ -65,7 +64,6 @@ export function JobStatusPanel({
   resultLabel,
   runComposite,
   runRawComposite,
-  setAlignmentMethod,
   setSourceExportFormat,
   stepActions,
   showPreviewAction = true,
@@ -130,19 +128,10 @@ export function JobStatusPanel({
         ))}
       </div>
       <div className="source-export-control">
-        <label className="field">
+        <div className="readonly-field">
           <span>{copy.execution.alignmentMethod}</span>
-          <select
-            value={alignmentMethod}
-            disabled={isJobBusy}
-            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-              setAlignmentMethod(event.currentTarget.value as AlignmentMethod)
-            }
-          >
-            <option value="stars">{copy.execution.alignmentMethods.stars}</option>
-            <option value="akaze">{copy.execution.alignmentMethods.akaze}</option>
-          </select>
-        </label>
+          <strong>{copy.execution.alignmentMethods[alignmentMethod]}</strong>
+        </div>
       </div>
       {showSourceExportFormat ? (
         <div className="source-export-control">

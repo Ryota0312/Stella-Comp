@@ -391,7 +391,7 @@ button {
 
 .upload-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 0.7fr) auto;
   align-items: end;
   gap: 12px;
   margin-top: 12px;
@@ -534,6 +534,21 @@ button {
   border-radius: var(--radius);
   color: var(--text);
   background: var(--surface);
+}
+
+.readonly-field {
+  display: grid;
+  gap: 6px;
+}
+
+.readonly-field span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.readonly-field strong {
+  font-size: 0.98rem;
 }
 
 .panel-jobs {
@@ -1198,6 +1213,10 @@ button {
   .progress-header {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .upload-controls {
+    grid-template-columns: 1fr;
   }
 
   .row-state {

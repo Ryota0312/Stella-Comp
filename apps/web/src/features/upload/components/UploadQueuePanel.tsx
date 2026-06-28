@@ -5,10 +5,11 @@ import {
   type Language,
   type UploadCopy,
 } from "../i18n";
-import type { QueueItem } from "../types";
+import type { AlignmentMethod, QueueItem } from "../types";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
+  alignmentMethod: AlignmentMethod;
   canStartPreview: boolean;
   clearQueue: () => void;
   copy: UploadCopy;
@@ -19,12 +20,14 @@ type UploadQueuePanelProps = {
   language: Language;
   onSelectFrames: () => void;
   onStartPreview: () => void;
+  setAlignmentMethod: (method: AlignmentMethod) => void;
   setActiveId: (id: string) => void;
   setIsDragging: (isDragging: boolean) => void;
 };
 
 export function UploadQueuePanel({
   activeItem,
+  alignmentMethod,
   canStartPreview,
   clearQueue,
   copy,
@@ -35,6 +38,7 @@ export function UploadQueuePanel({
   language,
   onSelectFrames,
   onStartPreview,
+  setAlignmentMethod,
   setActiveId,
   setIsDragging,
 }: UploadQueuePanelProps) {
@@ -115,6 +119,18 @@ export function UploadQueuePanel({
                 {item.name}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>{copy.execution.alignmentMethod}</span>
+          <select
+            value={alignmentMethod}
+            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+              setAlignmentMethod(event.currentTarget.value as AlignmentMethod)
+            }
+          >
+            <option value="stars">{copy.execution.alignmentMethods.stars}</option>
+            <option value="akaze">{copy.execution.alignmentMethods.akaze}</option>
           </select>
         </label>
         <button

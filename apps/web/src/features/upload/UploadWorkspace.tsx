@@ -197,6 +197,19 @@ export function UploadWorkspace() {
     inputRef.current?.click();
   }
 
+  const handleSetAlignmentMethod = useCallback(
+    (method: AlignmentMethod) => {
+      if (method === alignmentMethod) {
+        return;
+      }
+
+      setAlignmentMethod(method);
+      setCurrentStep("upload");
+      clearJobStateRef.current(false);
+    },
+    [alignmentMethod],
+  );
+
   const handleStartPreview = useCallback(() => {
     if (!canStartPreview) {
       return;
@@ -231,6 +244,7 @@ export function UploadWorkspace() {
           <>
             <UploadQueuePanel
               activeItem={activeItem}
+              alignmentMethod={alignmentMethod}
               canStartPreview={canStartPreview}
               clearQueue={clearQueue}
               copy={copy}
@@ -241,6 +255,7 @@ export function UploadWorkspace() {
               language={language}
               onSelectFrames={handleSelectFrames}
               onStartPreview={handleStartPreview}
+              setAlignmentMethod={handleSetAlignmentMethod}
               setActiveId={setActiveId}
               setIsDragging={setIsDragging}
             />
@@ -269,7 +284,6 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
-              setAlignmentMethod={setAlignmentMethod}
               setSourceExportFormat={setSourceExportFormat}
               showRawAction={false}
               showSourceExportFormat
@@ -335,7 +349,6 @@ export function UploadWorkspace() {
               resultLabel={resultLabel}
               runComposite={runComposite}
               runRawComposite={runRawComposite}
-              setAlignmentMethod={setAlignmentMethod}
               setSourceExportFormat={setSourceExportFormat}
               showPreviewAction={false}
               showSourceExportFormat

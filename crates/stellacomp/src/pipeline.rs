@@ -88,6 +88,36 @@ impl AlignmentMethod {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FeatureMethod {
+    Akaze,
+    Stars,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TransformModel {
+    Affine,
+}
+
+impl AlignmentMethod {
+    fn feature_method(self) -> FeatureMethod {
+        match self {
+            AlignmentMethod::Akaze => FeatureMethod::Akaze,
+            AlignmentMethod::Stars => FeatureMethod::Stars,
+        }
+    }
+
+    fn transform_model(self) -> TransformModel {
+        TransformModel::Affine
+    }
+}
+
+struct MatchedPointSet {
+    base_points: Vector<Point2f>,
+    target_points: Vector<Point2f>,
+    match_count: usize,
+}
+
 #[derive(Debug)]
 pub enum StellaCompError {
     EmptyInput,
@@ -325,16 +355,49 @@ fn estimate_affine_to_base(
     target_image: &DynamicImage,
     alignment_method: AlignmentMethod,
 ) -> Result<[f64; 6], StellaCompError> {
-    match alignment_method {
-        AlignmentMethod::Akaze => estimate_akaze_affine_to_base(base_image, target_image),
-        AlignmentMethod::Stars => estimate_star_affine_to_base(base_image, target_image),
+    match estimate_transform_to_base(
+        base_image,
+        target_image,
+        alignment_method.feature_method(),
+        alignment_method.transform_model(),
+    )? {
+        EstimatedTransform::Affine(affine) => Ok(affine),
     }
 }
 
-fn estimate_akaze_affine_to_base(
+enum EstimatedTransform {
+    Affine([f64; 6]),
+}
+
+fn estimate_transform_to_base(
     base_image: &DynamicImage,
     target_image: &DynamicImage,
-) -> Result<[f64; 6], StellaCompError> {
+    feature_method: FeatureMethod,
+    transform_model: TransformModel,
+) -> Result<EstimatedTransform, StellaCompError> {
+    let matched_points = collect_matched_points(base_image, target_image, feature_method)?;
+    match transform_model {
+        TransformModel::Affine => Ok(EstimatedTransform::Affine(
+            estimate_partial_affine_from_points(matched_points)?,
+        )),
+    }
+}
+
+fn collect_matched_points(
+    base_image: &DynamicImage,
+    target_image: &DynamicImage,
+    feature_method: FeatureMethod,
+) -> Result<MatchedPointSet, StellaCompError> {
+    match feature_method {
+        FeatureMethod::Akaze => collect_akaze_matched_points(base_image, target_image),
+        FeatureMethod::Stars => collect_star_matched_points(base_image, target_image),
+    }
+}
+
+fn collect_akaze_matched_points(
+    base_image: &DynamicImage,
+    target_image: &DynamicImage,
+) -> Result<MatchedPointSet, StellaCompError> {
     let (base_keypoints, _, target_keypoints, _, matched_points) =
         matches(base_image, target_image)
             .map_err(|error| StellaCompError::OpenCv(error.to_string()))?;
@@ -363,13 +426,17 @@ fn estimate_akaze_affine_to_base(
         );
     }
 
-    estimate_partial_affine_from_points(base_points, target_points, match_count)
+    Ok(MatchedPointSet {
+        base_points,
+        target_points,
+        match_count,
+    })
 }
 
-fn estimate_star_affine_to_base(
+fn collect_star_matched_points(
     base_image: &DynamicImage,
     target_image: &DynamicImage,
-) -> Result<[f64; 6], StellaCompError> {
+) -> Result<MatchedPointSet, StellaCompError> {
     let base_stars = detect_stars(base_image);
     let target_stars = detect_stars(target_image);
     let matched_points = match_stars(&base_stars, &target_stars);
@@ -382,7 +449,11 @@ fn estimate_star_affine_to_base(
 
     let (base_points, target_points) =
         star_matches_to_points(&base_stars, &target_stars, &matched_points)?;
-    estimate_partial_affine_from_points(base_points, target_points, matched_points.len())
+    Ok(MatchedPointSet {
+        base_points,
+        target_points,
+        match_count: matched_points.len(),
+    })
 }
 
 fn star_matches_to_points(
@@ -412,14 +483,12 @@ fn star_matches_to_points(
 }
 
 fn estimate_partial_affine_from_points(
-    base_points: Vector<Point2f>,
-    target_points: Vector<Point2f>,
-    match_count: usize,
+    matched_points: MatchedPointSet,
 ) -> Result<[f64; 6], StellaCompError> {
     let mut inliers = Mat::default();
     let affine = estimate_affine_partial_2d(
-        &target_points,
-        &base_points,
+        &matched_points.target_points,
+        &matched_points.base_points,
         &mut inliers,
         RANSAC,
         3.0,
@@ -442,7 +511,7 @@ fn estimate_partial_affine_from_points(
             count: inlier_count,
         });
     }
-    if inlier_count as usize > match_count {
+    if inlier_count as usize > matched_points.match_count {
         return Err(StellaCompError::InvalidTransform(
             "RANSAC reported more inliers than matches".to_string(),
         ));

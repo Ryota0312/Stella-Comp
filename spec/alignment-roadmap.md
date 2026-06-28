@@ -219,19 +219,19 @@ Local Warp
 
 ## 最初の実装プラン
 
-最初の実装は、UI の設定タイミング変更とホモグラフィを追加するための設計準備に絞る。
+最初の実装は、UI の設定タイミング変更とホモグラフィを追加するための設計準備に絞る。既存の preview alignment API と `stars` / `akaze` の wire 互換性は維持し、`stars + affine` を標準のままにする。
 
 ### 1. 検出手法選択をプレビュー前へ移動
 
 - 現在の `stars` / `akaze` 選択 UI を、プレビュー生成・アップロード・位置合わせ開始より前の設定領域へ移す。
-- プレビュー結果画面では、選択済み方式の表示に留める。
+- プレビュー結果画面と本画像合成画面では、選択済み方式の表示に留める。
 - 方式を変更した場合は既存の preview alignment 結果を再利用せず、再実行が必要な状態にする。
 - API の `alignmentMethod` は既存の `stars` / `akaze` を維持する。
 
 ### 2. グローバル変換方式の概念を追加
 
 - 現在の検出手法 `stars` / `akaze` と、変換モデル `affine` / `homography` を分けて扱う設計にする。
-- 直近の API 互換を優先し、最初は内部型だけを整理する。
+- 直近の API 互換を優先し、最初は Rust core の内部型だけを整理する。
 - Protocol Buffers の拡張は、UI と worker の最小実装方針が固まってから行う。
 
 ### 3. ホモグラフィ実装の下準備
@@ -240,6 +240,7 @@ Local Warp
 - 対応点生成までは既存の `stars` / `akaze` を共用する。
 - `estimateAffinePartial2D` と同じ入力点列から `findHomography` を呼べるようにする。
 - 成功時は 3x3 行列、失敗時は既存と同様に warning + fallback できる方針にする。
+- この段階では homography の UI 選択肢、Protocol Buffers の 3x3 行列返却、Canvas 側の homography 適用はまだ実装しない。
 
 ### 4. 比較評価の診断値を追加
 
