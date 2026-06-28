@@ -101,16 +101,18 @@ export function UploadQueuePanel({
         accept=".cr2,.cr3,.dng,.nef,.arw,.raf,.orf,.rw2,.jpg,.jpeg,.png,.webp,.avif,.tif,.tiff,image/*"
         onChange={handleInputChange}
       />
-      <div
-        className={`dropzone${isDragging ? " dropzone-active" : ""}`}
-        role="button"
-        tabIndex={0}
-        onClick={onSelectFrames}
-        onKeyDown={handleDropzoneKeyDown}
-      >
-        <p>{copy.upload.dropTitle}</p>
-        <span>{copy.upload.dropDescription}</span>
-      </div>
+      {items.length === 0 ? (
+        <div
+          className={`dropzone${isDragging ? " dropzone-active" : ""}`}
+          role="button"
+          tabIndex={0}
+          onClick={onSelectFrames}
+          onKeyDown={handleDropzoneKeyDown}
+        >
+          <p>{copy.upload.dropTitle}</p>
+          <span>{copy.upload.dropDescription}</span>
+        </div>
+      ) : null}
       <div className="upload-controls">
         <label className="field upload-reference-control">
           <span>{copy.upload.referenceFrame}</span>
