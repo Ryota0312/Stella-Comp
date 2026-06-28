@@ -98,7 +98,6 @@ button {
 }
 
 .hero-description {
-  max-width: 34ch;
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.84rem;
