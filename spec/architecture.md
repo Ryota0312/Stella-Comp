@@ -130,6 +130,8 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 
 現在のハイブリッド PoC では、Rust worker が preview JPEG から基準画像への 2x3 アフィン変換行列を推定し、Web UI がその行列を使ってブラウザ上で preview JPEG をアフィン変換・加算平均合成する。重いピクセル処理をブラウザ側へ寄せ、サーバーは位置合わせ推定を担当する構成の成立性を検証する。
 
+位置合わせ改善は `spec/alignment-roadmap.md` を正とする。直近では検出手法の選択をプレビュー生成前へ移し、現在の `stars + affine` を標準として維持する。その後、アフィン安定化、ホモグラフィ追加、アフィン/ホモグラフィ比較評価、対応星残差可視化、メッシュワープ、TPS、多項式ワープ、天球モデルの順に段階的に検証する。将来的には検出手法と変換モデルを分離し、`AlignmentEstimator` として affine、homography、mesh warp、TPS、spherical model を切り替えられる構成にする。
+
 ## 初期 API 案
 
 - `GET /api/health`
