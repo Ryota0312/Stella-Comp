@@ -4,8 +4,12 @@ import {
   queueStatusText,
   type Language,
   type UploadCopy,
-} from "../i18n";
-import type { AlignmentMethod, QueueItem, TransformModel } from "../types";
+} from "../model/i18n";
+import type { AlignmentMethod, QueueItem, TransformModel } from "../model/types";
+import { classNames } from "../model/utils";
+import workspaceStyles from "../StackingWorkspace.module.css";
+import sharedStyles from "./shared.module.css";
+import styles from "./UploadQueuePanel.module.css";
 
 type UploadQueuePanelProps = {
   activeItem?: QueueItem;
@@ -66,7 +70,12 @@ export function UploadQueuePanel({
 
   return (
     <section
-      className={`panel panel-upload${isDragging ? " panel-upload-dragging" : ""}`}
+      className={classNames(
+        sharedStyles.panel,
+        workspaceStyles["panel-upload"],
+        styles["panel-upload"],
+        isDragging && styles["panel-upload-dragging"],
+      )}
       onDragEnter={(event) => {
         event.preventDefault();
         setIsDragging(true);
@@ -79,25 +88,25 @@ export function UploadQueuePanel({
       }}
       onDrop={handleDrop}
     >
-      <header className="panel-header">
+      <header className={sharedStyles["panel-header"]}>
         <div>
-          <p className="panel-kicker">{copy.upload.kicker}</p>
+          <p className={sharedStyles["panel-kicker"]}>{copy.upload.kicker}</p>
           <h2>{copy.upload.title}</h2>
         </div>
-        <div className="action-row">
+        <div className={styles["action-row"]}>
           {items.length > 0 ? (
-            <button type="button" className="primary-action" onClick={onSelectFrames}>
+            <button type="button" className={sharedStyles["primary-action"]} onClick={onSelectFrames}>
               {copy.upload.selectFrames}
             </button>
           ) : null}
-          <button type="button" className="secondary-action" onClick={clearQueue}>
+          <button type="button" className={sharedStyles["secondary-action"]} onClick={clearQueue}>
             {copy.upload.clear}
           </button>
         </div>
       </header>
       <input
         ref={inputRef}
-        className="file-input"
+        className={styles["file-input"]}
         type="file"
         multiple
         accept=".cr2,.cr3,.dng,.nef,.arw,.raf,.orf,.rw2,.jpg,.jpeg,.png,.webp,.avif,.tif,.tiff,image/*"
@@ -105,7 +114,7 @@ export function UploadQueuePanel({
       />
       {items.length === 0 ? (
         <div
-          className={`dropzone${isDragging ? " dropzone-active" : ""}`}
+          className={classNames(styles.dropzone, isDragging && styles["dropzone-active"])}
           role="button"
           tabIndex={0}
           onClick={onSelectFrames}
@@ -115,8 +124,8 @@ export function UploadQueuePanel({
           <span>{copy.upload.dropDescription}</span>
         </div>
       ) : null}
-      <div className="upload-controls">
-        <label className="field upload-reference-control">
+      <div className={styles["upload-controls"]}>
+        <label className={classNames(sharedStyles.field, styles["upload-reference-control"])}>
           <span>{copy.upload.referenceFrame}</span>
           <select value={activeItem?.id ?? ""} onChange={(event) => setActiveId(event.target.value)}>
             <option value="" disabled>
@@ -129,7 +138,7 @@ export function UploadQueuePanel({
             ))}
           </select>
         </label>
-        <label className="field upload-method-control">
+        <label className={classNames(sharedStyles.field, styles["upload-method-control"])}>
           <span>{copy.execution.alignmentMethod}</span>
           <select
             value={alignmentMethod}
@@ -141,7 +150,7 @@ export function UploadQueuePanel({
             <option value="akaze">{copy.execution.alignmentMethods.akaze}</option>
           </select>
         </label>
-        <label className="field upload-method-control">
+        <label className={classNames(sharedStyles.field, styles["upload-method-control"])}>
           <span>{copy.execution.transformModel}</span>
           <select
             value={transformModel}
@@ -154,40 +163,49 @@ export function UploadQueuePanel({
           </select>
         </label>
       </div>
-      <div className="table-list" role="table" aria-label={copy.upload.queuedImagesLabel}>
+      <div className={styles["table-list"]} role="table" aria-label={copy.upload.queuedImagesLabel}>
         {items.length === 0 ? (
-          <div className="empty-state">{copy.upload.empty}</div>
+          <div className={styles["empty-state"]}>{copy.upload.empty}</div>
         ) : (
           items.map((item, index) => (
             <button
               type="button"
-              className={`table-row table-button${activeItem?.id === item.id ? " table-row-active" : ""}`}
+              className={classNames(
+                styles["table-row"],
+                styles["table-button"],
+                activeItem?.id === item.id && styles["table-row-active"],
+              )}
               role="row"
               key={item.id}
               onClick={() => setActiveId(item.id)}
             >
-              <div className="row-main">
-                <span className="queue-index">{index + 1}</span>
+              <div className={styles["row-main"]}>
+                <span className={styles["queue-index"]}>{index + 1}</span>
                 <div>
-                  <p className="row-title">{item.name}</p>
+                  <p className={styles["row-title"]}>{item.name}</p>
                 </div>
               </div>
-              <div className="row-state">
-                <span className={`pill pill-${item.status}`}>
+              <div className={styles["row-state"]}>
+                <span
+                  className={classNames(
+                    styles.pill,
+                    styles[`pill-${item.status}`],
+                  )}
+                >
                   {queueStatusText(item.status, language)}
                 </span>
                 {shouldShowQueueNote(item) ? (
-                  <span className="row-meta">{queueNoteText(item.note, language)}</span>
+                  <span className={styles["row-meta"]}>{queueNoteText(item.note, language)}</span>
                 ) : null}
               </div>
             </button>
           ))
         )}
       </div>
-      <div className="panel-step-actions">
+      <div className={sharedStyles["panel-step-actions"]}>
         <button
           type="button"
-          className="primary-action step-forward-action"
+          className={classNames(sharedStyles["primary-action"], sharedStyles["step-forward-action"])}
           disabled={!canStartPreview}
           onClick={onStartPreview}
         >

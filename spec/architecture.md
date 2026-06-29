@@ -31,6 +31,8 @@ stella-comp/
 - ジョブ状態の表示
 - 処理結果のプレビューとダウンロード
 
+フロントエンドの feature は URL や一時的な画面フェーズではなく、業務上のまとまりで分ける。現在の星景写真合成フローは `apps/web/src/features/stacking` を正とし、アップロード、プレビュー合成、本画像合成は同 feature 内の状態遷移として扱う。feature 内は `components/`、`hooks/`、`api/`、`processing/`、`model/` に分ける。フェーズ単位のディレクトリは、専用 UI とロジックが十分に独立してから追加する。UI 固有 CSS は `app/globals.css` に置かず feature 近くの CSS Modules に置く。`app/globals.css` はデザイントークン、reset、アプリ全体の最低限の base style に限定する。
+
 ### apps/api
 
 - REST API

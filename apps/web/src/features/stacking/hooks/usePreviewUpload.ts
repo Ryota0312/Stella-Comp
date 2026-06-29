@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import type { UploadCopy } from "../i18n";
-import type { QueueItem } from "../types";
-import {
-  type PreviewUploadSummary,
-  uploadPreviewImages,
-} from "../uploadApi";
-import { withoutExtension } from "../utils";
+import type { PreviewUploadSummary } from "../api/uploadApi";
+import { uploadPreviewImages } from "../api/uploadApi";
+import type { UploadCopy } from "../model/i18n";
+import type { QueueItem } from "../model/types";
+import { withoutExtension } from "../model/utils";
 
 type UsePreviewUploadOptions = {
   copy: UploadCopy;

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { stackPreviewImages } from "../clientStacking";
-import type { UploadCopy } from "../i18n";
-import { stackSourceImages } from "../rawStacking";
+import { estimatePreviewAlignments } from "../api/uploadApi";
+import type {
+  ImageTransform,
+  JobSummary,
+  PreviewAlignmentSummary,
+  ProcessingWarning,
+  PreviewUploadSummary,
+} from "../api/uploadApi";
+import type { UploadCopy } from "../model/i18n";
 import type {
   ClientCompositeStatus,
   CompositeProgress,
@@ -11,15 +17,9 @@ import type {
   RawCompositeStatus,
   SourceExportFormat,
   TransformModel,
-} from "../types";
-import {
-  estimatePreviewAlignments,
-  type ImageTransform,
-  type JobSummary,
-  type PreviewAlignmentSummary,
-  type ProcessingWarning,
-  type PreviewUploadSummary,
-} from "../uploadApi";
+} from "../model/types";
+import { stackPreviewImages } from "../processing/clientStacking";
+import { stackSourceImages } from "../processing/rawStacking";
 
 type UseCompositeJobOptions = {
   activeId: string | null;

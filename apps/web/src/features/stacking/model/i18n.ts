@@ -1,5 +1,5 @@
+import type { JobSummary } from "../api/uploadApi";
 import type { ClientCompositeStatus, QueueNote, QueueStatus, RawCompositeStatus } from "./types";
-import type { JobSummary } from "./uploadApi";
 
 export const languages = ["ja", "en"] as const;
 

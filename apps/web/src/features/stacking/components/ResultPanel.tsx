@@ -11,13 +11,17 @@ import type {
   CompositeProgress,
   RawCompositeStatus,
   SourceExportFormat,
-} from "../types";
+} from "../model/types";
 import {
   clientCompositeStatusText,
   rawCompositeStatusText,
   type Language,
   type UploadCopy,
-} from "../i18n";
+} from "../model/i18n";
+import { classNames } from "../model/utils";
+import workspaceStyles from "../StackingWorkspace.module.css";
+import sharedStyles from "./shared.module.css";
+import styles from "./ResultPanel.module.css";
 
 type ViewMode = "composite" | "reference" | "sideBySide";
 type ResultPhase = "preview" | "source";
@@ -155,23 +159,22 @@ export function ResultPanel({
     : copy.result.inspectUnavailable;
 
   return (
-    <section className="panel panel-results">
-      <header className="panel-header">
+    <section className={classNames(sharedStyles.panel, workspaceStyles["panel-results"], styles["panel-results"])}>
+      <header className={sharedStyles["panel-header"]}>
         <div>
-          <p className="panel-kicker">{copy.result.kicker}</p>
+          <p className={sharedStyles["panel-kicker"]}>{copy.result.kicker}</p>
           <h2>{copy.result.title}</h2>
         </div>
-        <div className="result-header-controls">
-          <div className="result-view-toggle" aria-label={copy.result.viewModeLabel}>
+        <div className={styles["result-header-controls"]}>
+          <div className={styles["result-view-toggle"]} aria-label={copy.result.viewModeLabel}>
             {modeOptions.map((option) => (
               <button
                 type="button"
                 key={option.mode}
-                className={
-                  viewMode === option.mode
-                    ? "result-view-option result-view-option-active"
-                    : "result-view-option"
-                }
+                className={classNames(
+                  styles["result-view-option"],
+                  viewMode === option.mode && styles["result-view-option-active"],
+                )}
                 disabled={!hasReference && option.mode !== "composite"}
                 onClick={() => setViewMode(option.mode)}
               >
@@ -191,12 +194,14 @@ export function ResultPanel({
           />
         </div>
       </header>
-      <div className="result-preview">
+      <div className={styles["result-preview"]}>
         {previewUrl ? (
           <div
-            className={`result-viewer result-viewer-${viewMode}${
-              processingOverlay ? " result-viewer-processing" : ""
-            }`}
+            className={classNames(
+              styles["result-viewer"],
+              styles[`result-viewer-${viewMode}`],
+              processingOverlay && styles["result-viewer-processing"],
+            )}
             onPointerLeave={() => setInspectPoint(null)}
           >
             {viewMode === "reference" ? (
@@ -220,7 +225,7 @@ export function ResultPanel({
               />
             ) : null}
             {viewMode === "sideBySide" ? (
-              <div className="result-compare-grid">
+              <div className={styles["result-compare-grid"]}>
                 <ImageFrame
                   alt={copy.result.referenceAlt}
                   label={copy.result.viewReference}
@@ -241,15 +246,15 @@ export function ResultPanel({
             ) : null}
             {canInspect && inspectPoint ? (
               <div
-                className="pixel-inspector"
+                className={styles["pixel-inspector"]}
                 style={inspectorPosition ?? undefined}
                 aria-label={copy.result.pixelInspectTitle}
               >
-                <div className="pixel-inspector-header">
+                <div className={styles["pixel-inspector-header"]}>
                   <span>{copy.result.pixelInspectTitle}</span>
                   <strong>{inspectCoordinate}</strong>
                 </div>
-                <div className="pixel-inspector-grid">
+                <div className={styles["pixel-inspector-grid"]}>
                   <PixelCrop
                     label={copy.result.viewReference}
                     point={inspectPoint}
@@ -331,29 +336,29 @@ function ProcessingOverlay({ overlay }: { overlay: ProcessingOverlayState }) {
     : null;
 
   return (
-    <div className="result-processing-overlay" aria-live="polite" aria-busy="true">
-      <div className="result-processing-card">
-        <div className="result-processing-spinner" aria-hidden="true" />
-        <div className="result-processing-copy">
+    <div className={styles["result-processing-overlay"]} aria-live="polite" aria-busy="true">
+      <div className={styles["result-processing-card"]}>
+        <div className={styles["result-processing-spinner"]} aria-hidden="true" />
+        <div className={styles["result-processing-copy"]}>
           <strong>{overlay.title}</strong>
           {overlay.detail ? <span>{overlay.detail}</span> : null}
         </div>
         {overlay.progress ? (
           <div
-            className="result-processing-progress"
+            className={styles["result-processing-progress"]}
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={overlay.progress.total}
             aria-valuenow={overlay.progress.current}
           >
-            <div className="result-processing-progress-header">
+            <div className={styles["result-processing-progress-header"]}>
               <span>
                 {overlay.progress.current} / {overlay.progress.total}
               </span>
             </div>
-            <div className="result-processing-progress-bar" aria-hidden="true">
+            <div className={styles["result-processing-progress-bar"]} aria-hidden="true">
               <div
-                className="result-processing-progress-value"
+                className={styles["result-processing-progress-value"]}
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -384,9 +389,20 @@ function ResultActions({
   resultLabel: SourceExportFormat | null;
 }) {
   return (
-    <div className={compact ? "result-actions result-actions-compact" : "result-actions"}>
+    <div
+      className={classNames(
+        styles["result-actions"],
+        compact && styles["result-actions-compact"],
+        !compact && styles["result-actions-source"],
+      )}
+    >
       <a
-        className={`secondary-action step-back-action link-action${hasPreview ? "" : " link-disabled"}`}
+        className={classNames(
+          sharedStyles["secondary-action"],
+          sharedStyles["step-back-action"],
+          styles["secondary-action"],
+          !hasPreview && sharedStyles["link-disabled"],
+        )}
         href={previewUrl ?? undefined}
         target="_blank"
         rel="noreferrer"
@@ -395,7 +411,12 @@ function ResultActions({
         {copy.result.openPreview}
       </a>
       <a
-        className={`primary-action download-action link-action${hasDownload ? "" : " link-disabled"}`}
+        className={classNames(
+          sharedStyles["primary-action"],
+          styles["primary-action"],
+          styles["download-action"],
+          !hasDownload && sharedStyles["link-disabled"],
+        )}
         href={downloadUrl ?? undefined}
         download={downloadFileName ?? undefined}
         aria-disabled={!hasDownload}
@@ -427,16 +448,21 @@ function ImageFrame({
 }) {
   if (!src) {
     return (
-      <div className="result-image-frame result-image-empty">
-        {showLabel ? <div className="result-image-frame-header">{label}</div> : null}
+      <div className={classNames(styles["result-image-frame"], styles["result-image-empty"])}>
+        {showLabel ? <div className={styles["result-image-frame-header"]}>{label}</div> : null}
       </div>
     );
   }
 
   return (
-    <div className={`result-image-frame${showLabel ? "" : " result-image-frame-unlabeled"}`}>
-      {showLabel ? <div className="result-image-frame-header">{label}</div> : null}
-      <div className="result-image-viewport" onPointerMove={onPointerMove}>
+    <div
+      className={classNames(
+        styles["result-image-frame"],
+        !showLabel && styles["result-image-frame-unlabeled"],
+      )}
+    >
+      {showLabel ? <div className={styles["result-image-frame-header"]}>{label}</div> : null}
+      <div className={styles["result-image-viewport"]} onPointerMove={onPointerMove}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
@@ -489,9 +515,9 @@ function PixelCrop({
   }, [point, scaleSize, size, src]);
 
   return (
-    <div className="pixel-crop">
+    <div className={styles["pixel-crop"]}>
       <span>{label}</span>
-      <div className="pixel-crop-image" style={style} />
+      <div className={styles["pixel-crop-image"]} style={style} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { AlignmentMethod, TransformModel } from "./types";
+import type { AlignmentMethod, TransformModel } from "../model/types";
 
 export type PreviewUploadSummary = {
   sessionId: string;

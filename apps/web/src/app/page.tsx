@@ -1,6 +1,5 @@
-import { UploadWorkspace } from "@/features/upload/UploadWorkspace";
+import { StackingWorkspace } from "@/features/stacking/StackingWorkspace";
 
 export default function HomePage() {
-  return <UploadWorkspace />;
+  return <StackingWorkspace />;
 }
-

@@ -15,15 +15,18 @@ import {
   languages,
   type Language,
   uploadCopy,
-} from "./i18n";
-import type { AlignmentMethod, SourceExportFormat, TransformModel, WorkspaceStep } from "./types";
+} from "./model/i18n";
+import { classNames } from "./model/utils";
+import type { AlignmentMethod, SourceExportFormat, TransformModel, WorkspaceStep } from "./model/types";
+import sharedStyles from "./components/shared.module.css";
+import styles from "./StackingWorkspace.module.css";
 
 const languageStorageKey = "stella-comp-language";
 const debugEnabled =
   process.env.NEXT_PUBLIC_DEPLOY_STAGE === "staging" ||
   process.env.NEXT_PUBLIC_APP_ENV === "staging";
 
-export function UploadWorkspace() {
+export function StackingWorkspace() {
   const [language, setLanguage] = useState<Language>(() => {
     if (typeof window === "undefined") {
       return defaultLanguage;
@@ -184,7 +187,7 @@ export function UploadWorkspace() {
   }, [canOpenSourceStep, rawCompositeStatus, resultLabel, runRawComposite, sourceExportFormat]);
 
   return (
-    <main className="page-shell">
+    <main className={styles["page-shell"]}>
       <HeroMetrics
         copy={copy}
         currentStep={currentStep}
@@ -192,7 +195,14 @@ export function UploadWorkspace() {
         setLanguage={setLanguage}
       />
 
-      <section className={`workspace-grid workspace-step-${currentStep}`}>
+      <section
+        className={classNames(
+          styles["workspace-grid"],
+          currentStep === "upload" && styles["workspace-step-upload"],
+          currentStep === "preview" && styles["workspace-step-preview"],
+          currentStep === "source" && styles["workspace-step-source"],
+        )}
+      >
         {currentStep === "upload" ? (
           <>
             <UploadQueuePanel
@@ -247,14 +257,14 @@ export function UploadWorkspace() {
                 <>
                   <button
                     type="button"
-                    className="secondary-action step-back-action"
+                    className={classNames(sharedStyles["secondary-action"], sharedStyles["step-back-action"])}
                     onClick={() => setCurrentStep("upload")}
                   >
                     {copy.steps.backToUpload}
                   </button>
                   <button
                     type="button"
-                    className="primary-action step-forward-action"
+                    className={classNames(sharedStyles["primary-action"], sharedStyles["step-forward-action"])}
                     disabled={!canOpenSourceStep}
                     onClick={handleStartSource}
                   >
@@ -310,14 +320,14 @@ export function UploadWorkspace() {
                 <>
                   <button
                     type="button"
-                    className="secondary-action step-back-action"
+                    className={classNames(sharedStyles["secondary-action"], sharedStyles["step-back-action"])}
                     onClick={() => setCurrentStep("preview")}
                   >
                     {copy.steps.backToPreview}
                   </button>
                   <button
                     type="button"
-                    className="primary-action"
+                    className={sharedStyles["primary-action"]}
                     disabled={!canRunJob || isJobBusy}
                     onClick={runRawComposite}
                   >

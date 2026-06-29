@@ -4,13 +4,13 @@ import {
   previewJpegQuality,
   previewMaxEdge,
   rawExtensions,
-} from "../constants";
+} from "../model/constants";
+import type { QueueItem } from "../model/types";
+import { createQueueItem, formatBytes } from "../model/utils";
 import {
   createPreviewJpeg,
   extractEmbeddedJpegFromRaw,
-} from "../previewGeneration";
-import type { QueueItem } from "../types";
-import { createQueueItem, formatBytes } from "../utils";
+} from "../processing/previewGeneration";
 
 type UseUploadQueueOptions = {
   onQueueChanged: () => void;

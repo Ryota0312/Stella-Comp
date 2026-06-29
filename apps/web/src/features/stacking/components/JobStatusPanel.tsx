@@ -6,15 +6,18 @@ import type {
   RawCompositeStatus,
   SourceExportFormat,
   TransformModel,
-} from "../types";
-import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../uploadApi";
+} from "../model/types";
+import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../api/uploadApi";
 import {
   clientCompositeStatusText,
   rawCompositeStatusText,
   type Language,
   type UploadCopy,
-} from "../i18n";
-import { formatBytes } from "../utils";
+} from "../model/i18n";
+import { classNames, formatBytes } from "../model/utils";
+import workspaceStyles from "../StackingWorkspace.module.css";
+import sharedStyles from "./shared.module.css";
+import styles from "./JobStatusPanel.module.css";
 
 type JobStatusPanelProps = {
   alignmentMethod: AlignmentMethod;
@@ -100,31 +103,31 @@ export function JobStatusPanel({
     : [];
 
   return (
-    <section className="panel panel-jobs">
-      <header className="panel-header">
+    <section className={classNames(sharedStyles.panel, workspaceStyles["panel-jobs"], styles["panel-jobs"])}>
+      <header className={sharedStyles["panel-header"]}>
         <div>
-          <p className="panel-kicker">{copy.execution.kicker}</p>
+          <p className={sharedStyles["panel-kicker"]}>{copy.execution.kicker}</p>
           <h2>{copy.execution.title}</h2>
         </div>
       </header>
-      <div className="source-export-control execution-summary">
-        <div className="readonly-field">
+      <div className={classNames(styles["source-export-control"], styles["execution-summary"])}>
+        <div className={sharedStyles["readonly-field"]}>
           <span>{copy.execution.alignmentMethod}</span>
           <strong>{copy.execution.alignmentMethods[alignmentMethod]}</strong>
         </div>
-        <div className="readonly-field">
+        <div className={sharedStyles["readonly-field"]}>
           <span>{copy.execution.transformModel}</span>
           <strong>{copy.execution.transformModels[transformModel]}</strong>
         </div>
-        <div className="readonly-field">
+        <div className={sharedStyles["readonly-field"]}>
           <span>{copy.execution.usedFrames}</span>
           <strong>{copy.execution.usedFramesSummary(usedFrameCount, frameCount)}</strong>
         </div>
       </div>
       {showSourceExportFormat ? (
-        <div className="source-export-control">
+        <div className={styles["source-export-control"]}>
           {sourceExportEditable ? (
-            <label className="field">
+            <label className={sharedStyles.field}>
               <span>{copy.execution.outputFormat}</span>
               <select
                 value={sourceExportFormat}
@@ -139,18 +142,18 @@ export function JobStatusPanel({
               </select>
             </label>
           ) : (
-            <div className="readonly-field">
+            <div className={sharedStyles["readonly-field"]}>
               <span>{copy.execution.outputFormat}</span>
               <strong>{copy.execution.outputFormats[sourceExportFormat]}</strong>
             </div>
           )}
         </div>
       ) : null}
-      {uploadError ? <p className="inline-error">{uploadError}</p> : null}
-      {jobError ? <p className="inline-error">{jobError}</p> : null}
-      {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
+      {uploadError ? <p className={sharedStyles["inline-error"]}>{uploadError}</p> : null}
+      {jobError ? <p className={sharedStyles["inline-error"]}>{jobError}</p> : null}
+      {job?.status === "failed" && job.error ? <p className={sharedStyles["inline-error"]}>{job.error}</p> : null}
       {visibleWarnings.length ? (
-        <div className="warning-list" aria-label={copy.execution.warningsLabel}>
+        <div className={styles["warning-list"]} aria-label={copy.execution.warningsLabel}>
           {visibleWarnings.map((warning, index) => (
             <p key={index}>
               <strong>{copy.execution.warningsLabel}</strong>
@@ -160,7 +163,7 @@ export function JobStatusPanel({
         </div>
       ) : null}
       {debugEnabled ? (
-        <div className="debug-panel" aria-label={copy.debug.title}>
+        <div className={styles["debug-panel"]} aria-label={copy.debug.title}>
           <h3>{copy.debug.title}</h3>
           <dl>
             {debugRows.map(([label, value]) => (
@@ -183,7 +186,7 @@ export function JobStatusPanel({
           ) : null}
         </div>
       ) : null}
-      {stepActions ? <div className="panel-step-actions">{stepActions}</div> : null}
+      {stepActions ? <div className={sharedStyles["panel-step-actions"]}>{stepActions}</div> : null}
     </section>
   );
 }

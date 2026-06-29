@@ -1,6 +1,6 @@
-import type { CompositeOutput, QueueItem } from "./types";
+import type { ImageTransform } from "../api/uploadApi";
+import type { CompositeOutput, QueueItem } from "../model/types";
 import { renderTransformedImage } from "./transformRendering";
-import type { ImageTransform } from "./uploadApi";
 
 type StackPreviewOptions = {
   items: QueueItem[];

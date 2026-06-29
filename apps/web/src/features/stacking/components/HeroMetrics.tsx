@@ -1,5 +1,7 @@
-import { languages, type Language, type UploadCopy } from "../i18n";
-import type { WorkspaceStep } from "../types";
+import { languages, type Language, type UploadCopy } from "../model/i18n";
+import type { WorkspaceStep } from "../model/types";
+import { classNames } from "../model/utils";
+import styles from "./HeroMetrics.module.css";
 
 type HeroMetricsProps = {
   copy: UploadCopy;
@@ -17,16 +19,19 @@ export function HeroMetrics({
   setLanguage,
 }: HeroMetricsProps) {
   return (
-    <section className="hero-band">
-      <div className="hero-copy">
-        <p className="eyebrow">{copy.hero.eyebrow}</p>
+    <section className={styles["hero-band"]}>
+      <div className={styles["hero-copy"]}>
+        <p className={styles.eyebrow}>{copy.hero.eyebrow}</p>
         <h1>{copy.hero.title}</h1>
-        <p className="hero-description">{copy.hero.description}</p>
+        <p className={styles["hero-description"]}>{copy.hero.description}</p>
       </div>
-      <div className="stepper" aria-label={copy.steps.current}>
+      <div className={styles.stepper} aria-label={copy.steps.current}>
         {workspaceSteps.map((step, index) => (
           <div
-            className={`stepper-item${currentStep === step ? " stepper-item-active" : ""}`}
+            className={classNames(
+              styles["stepper-item"],
+              currentStep === step && styles["stepper-item-active"],
+            )}
             key={step}
           >
             <span>{index + 1}</span>
@@ -34,8 +39,8 @@ export function HeroMetrics({
           </div>
         ))}
       </div>
-      <div className="hero-side">
-        <label className="language-switcher">
+      <div className={styles["hero-side"]}>
+        <label className={styles["language-switcher"]}>
           <span className="visually-hidden">{copy.languageToggleLabel}</span>
           <select
             aria-label={copy.languageToggleLabel}

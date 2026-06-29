@@ -1,0 +1,80 @@
+.panel-jobs {
+  grid-column: 2;
+  overflow: auto;
+}
+.source-export-control {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.warning-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.warning-list p {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  color: var(--warn);
+  background: rgba(244, 189, 100, 0.14);
+  line-height: 1.35;
+}
+
+.warning-list span {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.debug-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.debug-panel h3,
+.debug-panel p {
+  margin: 0;
+}
+
+.debug-panel h3 {
+  color: var(--warn);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.debug-panel dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.debug-panel div {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.42fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.debug-panel dt,
+.debug-panel dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.debug-panel dd {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
