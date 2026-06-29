@@ -143,10 +143,15 @@ GitHub Secrets は以下を使う。
 - `STELLA_COMP_HTTPS_DOMAINS`
   - HTTPS Portal の `DOMAINS`。例: `example.com -> http://nginx:80`。
   - GitHub Secrets には引用符を含めず、この形式の値そのものを保存する。ドメイン名だけを指定すると HTTPS Portal は静的サイトとして扱い、既定の Welcome ページを返すことがある。
+- `STELLA_COMP_BASIC_AUTH_HTPASSWD`
+  - nginx の Basic 認証で staging/private deploy を保護するための htpasswd 1 行。
+  - `docker run --rm httpd:2.4-alpine htpasswd -nbB stella '<password>'` などで生成する。
 - `GHCR_USERNAME`
   - GHCR package が private の場合に VPS 上で `docker login ghcr.io` するユーザー名。
 - `GHCR_TOKEN`
   - GHCR package が private の場合に VPS 上で使う read packages 権限付き token。GHCR package を public にする場合や VPS 側で事前 login する場合は省略できる。
+
+VPS 公開制限は `deploy.yml` の `access_mode` で制御する。`auto` は `https_stage=production` では `public`、`https_stage=staging` では `private` に解決する。正式 SemVer tag の自動 deploy は production/public、prerelease SemVer tag の自動 deploy は staging/private になる。公開前確認や一時的な非公開化では、手動 deploy で同じ image tag を指定し、必要に応じて `access_mode=public` または `private` を明示する。
 
 VPS 側の前提条件:
 

@@ -150,11 +150,18 @@ DEPLOY_PORT                    SSH port。未設定時は 22
 DEPLOY_PATH                    VPS 上の配置先。例: /opt/stella-comp
 DEPLOY_SSH_KEY                 SSH 秘密鍵
 STELLA_COMP_HTTPS_DOMAINS      例: example.com -> http://nginx:80
+STELLA_COMP_BASIC_AUTH_HTPASSWD staging/private 公開制限用の htpasswd 1 行
 GHCR_USERNAME                  private package を pull する場合のみ
 GHCR_TOKEN                     private package を pull する場合のみ。read packages 権限が必要
 ```
 
 GitHub Secrets の `STELLA_COMP_HTTPS_DOMAINS` にはシェル用の引用符を含めず、`example.com -> http://nginx:80` の形式で保存します。`example.com` だけを指定した場合や、値に引用符が含まれる場合、HTTPS Portal は nginx への proxy ではなく静的サイトとして扱い、`Welcome to HTTPS-PORTAL!` の既定ページを返すことがあります。
+
+VPS 公開制限は nginx の Basic 認証で切り替えます。`.github/workflows/deploy.yml` の `access_mode` は `auto` / `public` / `private` を指定でき、`auto` では `production` が `public`、`staging` が `private` になります。手動 deploy で `access_mode=private` を選ぶと production image でも一時的に非公開にできます。`STELLA_COMP_BASIC_AUTH_HTPASSWD` は以下のように生成した 1 行を GitHub Secrets に保存してください。
+
+```sh
+docker run --rm httpd:2.4-alpine htpasswd -nbB stella '<password>'
+```
 
 VPS 側には Docker Engine と Docker Compose plugin が必要です。また、`DEPLOY_USER` は passwordless sudo なしで `docker` / `docker compose` を実行できる必要があります。一般的には VPS 上で `sudo usermod -aG docker <DEPLOY_USER>` を実行し、いったん SSH セッションを切断して再ログインしてから `docker ps` が通ることを確認します。
 

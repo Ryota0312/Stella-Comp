@@ -160,4 +160,5 @@ jobs:
     with:
       image_tag: ${{ needs.publish-images.outputs.image-tag }}
       https_stage: ${{ needs.publish-images.outputs.https-stage }}
+      access_mode: auto
     secrets: inherit

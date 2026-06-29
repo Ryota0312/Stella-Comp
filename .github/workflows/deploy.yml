@@ -11,6 +11,11 @@ on:
         description: "HTTPS Portal stage"
         required: true
         type: string
+      access_mode:
+        description: "Access control mode: auto, public, or private"
+        required: false
+        default: "auto"
+        type: string
   workflow_dispatch:
     inputs:
       image_tag:
@@ -25,6 +30,15 @@ on:
         options:
           - production
           - staging
+      access_mode:
+        description: "Access control mode"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - public
+          - private
 
 permissions:
   contents: read
@@ -49,6 +63,7 @@ jobs:
       GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
       GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
       STELLA_COMP_HTTPS_DOMAINS: ${{ secrets.STELLA_COMP_HTTPS_DOMAINS }}
+      STELLA_COMP_BASIC_AUTH_HTPASSWD: ${{ secrets.STELLA_COMP_BASIC_AUTH_HTPASSWD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,9 +72,11 @@ jobs:
         env:
           IMAGE_TAG: ${{ inputs.image_tag }}
           HTTPS_STAGE: ${{ inputs.https_stage }}
+          ACCESS_MODE: ${{ inputs.access_mode }}
         run: |
           tag="$IMAGE_TAG"
           stage="$HTTPS_STAGE"
+          access_mode="$ACCESS_MODE"
           if [[ ! "$tag" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
             echo "::error::Invalid Docker image tag: ${tag}"
             exit 1
@@ -68,6 +85,26 @@ jobs:
             echo "::error::Invalid HTTPS Portal stage: ${stage}"
             exit 1
           fi
+          if [ "$access_mode" != "auto" ] && [ "$access_mode" != "public" ] && [ "$access_mode" != "private" ]; then
+            echo "::error::Invalid access mode: ${access_mode}"
+            exit 1
+          fi
+
+      - name: Resolve access mode
+        id: access
+        env:
+          HTTPS_STAGE: ${{ inputs.https_stage }}
+          ACCESS_MODE: ${{ inputs.access_mode }}
+        run: |
+          mode="$ACCESS_MODE"
+          if [ "$mode" = "auto" ]; then
+            if [ "$HTTPS_STAGE" = "production" ]; then
+              mode="public"
+            else
+              mode="private"
+            fi
+          fi
+          echo "mode=${mode}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve image names
         id: images
@@ -83,6 +120,8 @@ jobs:
           echo "worker=${base}/worker:${tag}" >> "$GITHUB_OUTPUT"
 
       - name: Check deploy secrets
+        env:
+          ACCESS_MODE: ${{ steps.access.outputs.mode }}
         run: |
           missing=0
           for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY STELLA_COMP_HTTPS_DOMAINS; do
@@ -91,6 +130,10 @@ jobs:
               missing=1
             fi
           done
+          if [ "$ACCESS_MODE" = "private" ] && [ -z "$STELLA_COMP_BASIC_AUTH_HTPASSWD" ]; then
+            echo "::error::STELLA_COMP_BASIC_AUTH_HTPASSWD is required when access mode resolves to private."
+            missing=1
+          fi
           exit "$missing"
 
       - name: Prepare SSH
@@ -102,10 +145,24 @@ jobs:
           ssh-keyscan -p "${DEPLOY_PORT:-22}" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
 
       - name: Upload deploy files
+        env:
+          ACCESS_MODE: ${{ steps.access.outputs.mode }}
         run: |
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+          if [ "$ACCESS_MODE" = "private" ]; then
+            printf '%s\n' 'auth_basic "Stella Comp";' > "$tmpdir/access-control.conf"
+            printf '%s\n' 'auth_basic_user_file /etc/nginx/basic-auth.htpasswd;' >> "$tmpdir/access-control.conf"
+            printf '%s\n' "$STELLA_COMP_BASIC_AUTH_HTPASSWD" > "$tmpdir/basic-auth.htpasswd"
+          else
+            : > "$tmpdir/access-control.conf"
+            : > "$tmpdir/basic-auth.htpasswd"
+          fi
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" "mkdir -p '${DEPLOY_PATH}/deploy'"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" compose.deploy.yml "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/compose.deploy.yml"
           scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" deploy/nginx.conf "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/nginx.conf"
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" "$tmpdir/access-control.conf" "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/access-control.conf"
+          scp -i ~/.ssh/deploy_key -P "${DEPLOY_PORT:-22}" "$tmpdir/basic-auth.htpasswd" "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/deploy/basic-auth.htpasswd"
 
       - name: Pull images and restart compose
         env:
