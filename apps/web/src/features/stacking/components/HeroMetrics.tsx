@@ -1,23 +1,14 @@
-import { languages, type Language, type UploadCopy } from "../model/i18n";
+import { languages, type Language } from "../model/i18n";
 import type { WorkspaceStep } from "../model/types";
 import { classNames } from "../model/utils";
+import { useStackingWorkspace } from "../state/StackingWorkspaceContext";
 import styles from "./HeroMetrics.module.css";
-
-type HeroMetricsProps = {
-  copy: UploadCopy;
-  currentStep: WorkspaceStep;
-  language: Language;
-  setLanguage: (language: Language) => void;
-};
 
 const workspaceSteps: WorkspaceStep[] = ["upload", "preview", "source"];
 
-export function HeroMetrics({
-  copy,
-  currentStep,
-  language,
-  setLanguage,
-}: HeroMetricsProps) {
+export function HeroMetrics() {
+  const { copy, currentStep, language, setLanguage } = useStackingWorkspace();
+
   return (
     <section className={styles["hero-band"]}>
       <div className={styles["hero-copy"]}>

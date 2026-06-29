@@ -1,16 +1,12 @@
-import type { UploadCopy } from "../model/i18n";
-import type { QueueItem } from "../model/types";
 import { classNames, formatBytes } from "../model/utils";
+import { useStackingWorkspace } from "../state/StackingWorkspaceContext";
 import workspaceStyles from "../StackingWorkspace.module.css";
 import sharedStyles from "./shared.module.css";
 import styles from "./PreviewPanel.module.css";
 
-type PreviewPanelProps = {
-  activeItem?: QueueItem;
-  copy: UploadCopy;
-};
+export function PreviewPanel() {
+  const { activeItem, copy } = useStackingWorkspace();
 
-export function PreviewPanel({ activeItem, copy }: PreviewPanelProps) {
   return (
     <section className={classNames(sharedStyles.panel, workspaceStyles["panel-preview"], styles["panel-preview"])}>
       <header className={sharedStyles["panel-header"]}>

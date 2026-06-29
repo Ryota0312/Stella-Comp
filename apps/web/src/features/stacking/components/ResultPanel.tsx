@@ -19,6 +19,7 @@ import {
   type UploadCopy,
 } from "../model/i18n";
 import { classNames } from "../model/utils";
+import { useStackingWorkspace } from "../state/StackingWorkspaceContext";
 import workspaceStyles from "../StackingWorkspace.module.css";
 import sharedStyles from "./shared.module.css";
 import styles from "./ResultPanel.module.css";
@@ -46,36 +47,29 @@ type InspectorPosition = {
 };
 
 type ResultPanelProps = {
-  clientCompositeStatus: ClientCompositeStatus;
-  copy: UploadCopy;
-  downloadFileName: string | null;
-  downloadUrl: string | null;
-  language: Language;
   phase: ResultPhase;
-  resultLabel: SourceExportFormat | null;
-  previewUrl: string | null;
-  rawCompositeProgress: CompositeProgress | null;
-  rawCompositeStatus: RawCompositeStatus;
-  referencePreviewUrl: string | null;
 };
 
-export function ResultPanel({
-  clientCompositeStatus,
-  copy,
-  downloadFileName,
-  downloadUrl,
-  language,
-  phase,
-  resultLabel,
-  previewUrl,
-  rawCompositeProgress,
-  rawCompositeStatus,
-  referencePreviewUrl,
-}: ResultPanelProps) {
+export function ResultPanel({ phase }: ResultPanelProps) {
+  const {
+    clientCompositeStatus,
+    copy,
+    language,
+    rawCompositeProgress,
+    rawCompositeStatus,
+    referencePreviewUrl,
+    resultDownloadFileName,
+    resultDownloadUrl,
+    resultLabel,
+    resultPreviewUrl,
+  } = useStackingWorkspace();
   const [viewMode, setViewMode] = useState<ViewMode>("composite");
   const [inspectPoint, setInspectPoint] = useState<InspectPoint | null>(null);
   const [compositeSize, setCompositeSize] = useState<ImageSize | null>(null);
   const [referenceSize, setReferenceSize] = useState<ImageSize | null>(null);
+  const downloadFileName = resultDownloadFileName;
+  const downloadUrl = resultDownloadUrl;
+  const previewUrl = resultPreviewUrl;
   const hasPreview = Boolean(previewUrl);
   const hasDownload = Boolean(downloadUrl);
   const hasReference = Boolean(referencePreviewUrl);

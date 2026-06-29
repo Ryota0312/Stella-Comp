@@ -1,55 +1,33 @@
-import type { ChangeEvent, DragEvent, KeyboardEvent, RefObject } from "react";
-import {
-  queueNoteText,
-  queueStatusText,
-  type Language,
-  type UploadCopy,
-} from "../model/i18n";
+import type { ChangeEvent, DragEvent, KeyboardEvent } from "react";
+import { queueNoteText, queueStatusText } from "../model/i18n";
 import type { AlignmentMethod, QueueItem, TransformModel } from "../model/types";
 import { classNames } from "../model/utils";
+import { useStackingWorkspace } from "../state/StackingWorkspaceContext";
 import workspaceStyles from "../StackingWorkspace.module.css";
 import sharedStyles from "./shared.module.css";
 import styles from "./UploadQueuePanel.module.css";
 
-type UploadQueuePanelProps = {
-  activeItem?: QueueItem;
-  alignmentMethod: AlignmentMethod;
-  transformModel: TransformModel;
-  canStartPreview: boolean;
-  clearQueue: () => void;
-  copy: UploadCopy;
-  enqueueFiles: (fileList: FileList | null) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
-  isDragging: boolean;
-  items: QueueItem[];
-  language: Language;
-  onSelectFrames: () => void;
-  onStartPreview: () => void;
-  setAlignmentMethod: (method: AlignmentMethod) => void;
-  setTransformModel: (model: TransformModel) => void;
-  setActiveId: (id: string) => void;
-  setIsDragging: (isDragging: boolean) => void;
-};
+export function UploadQueuePanel() {
+  const {
+    activeItem,
+    alignmentMethod,
+    canStartPreview,
+    clearQueue,
+    copy,
+    enqueueFiles,
+    handleSelectFrames,
+    inputRef,
+    isDragging,
+    items,
+    language,
+    setActiveId,
+    setAlignmentMethod,
+    setIsDragging,
+    setTransformModel,
+    startPreview,
+    transformModel,
+  } = useStackingWorkspace();
 
-export function UploadQueuePanel({
-  activeItem,
-  alignmentMethod,
-  transformModel,
-  canStartPreview,
-  clearQueue,
-  copy,
-  enqueueFiles,
-  inputRef,
-  isDragging,
-  items,
-  language,
-  onSelectFrames,
-  onStartPreview,
-  setAlignmentMethod,
-  setTransformModel,
-  setActiveId,
-  setIsDragging,
-}: UploadQueuePanelProps) {
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     enqueueFiles(event.target.files);
     event.target.value = "";
@@ -64,7 +42,7 @@ export function UploadQueuePanel({
   function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      onSelectFrames();
+      handleSelectFrames();
     }
   }
 
@@ -95,7 +73,7 @@ export function UploadQueuePanel({
         </div>
         <div className={styles["action-row"]}>
           {items.length > 0 ? (
-            <button type="button" className={sharedStyles["primary-action"]} onClick={onSelectFrames}>
+            <button type="button" className={sharedStyles["primary-action"]} onClick={handleSelectFrames}>
               {copy.upload.selectFrames}
             </button>
           ) : null}
@@ -117,7 +95,7 @@ export function UploadQueuePanel({
           className={classNames(styles.dropzone, isDragging && styles["dropzone-active"])}
           role="button"
           tabIndex={0}
-          onClick={onSelectFrames}
+          onClick={handleSelectFrames}
           onKeyDown={handleDropzoneKeyDown}
         >
           <p>{copy.upload.dropTitle}</p>
@@ -207,7 +185,7 @@ export function UploadQueuePanel({
           type="button"
           className={classNames(sharedStyles["primary-action"], sharedStyles["step-forward-action"])}
           disabled={!canStartPreview}
-          onClick={onStartPreview}
+          onClick={startPreview}
         >
           {copy.steps.startPreview}
         </button>

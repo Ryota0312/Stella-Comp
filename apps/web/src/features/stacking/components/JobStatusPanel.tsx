@@ -1,79 +1,49 @@
-import type { ChangeEvent, ReactNode } from "react";
-import type {
-  ClientCompositeStatus,
-  CompositeProgress,
-  AlignmentMethod,
-  RawCompositeStatus,
-  SourceExportFormat,
-  TransformModel,
-} from "../model/types";
-import type { JobSummary, PreviewUploadSummary, ProcessingWarning } from "../api/uploadApi";
-import {
-  clientCompositeStatusText,
-  rawCompositeStatusText,
-  type Language,
-  type UploadCopy,
-} from "../model/i18n";
+import type { ChangeEvent } from "react";
+import type { SourceExportFormat } from "../model/types";
+import { clientCompositeStatusText, rawCompositeStatusText } from "../model/i18n";
 import { classNames, formatBytes } from "../model/utils";
+import { debugEnabled, useStackingWorkspace } from "../state/StackingWorkspaceContext";
 import workspaceStyles from "../StackingWorkspace.module.css";
 import sharedStyles from "./shared.module.css";
 import styles from "./JobStatusPanel.module.css";
 
 type JobStatusPanelProps = {
-  alignmentMethod: AlignmentMethod;
-  transformModel: TransformModel;
-  compressionRatio: number;
-  clientCompositeStatus: ClientCompositeStatus;
-  clientWarnings: ProcessingWarning[];
-  copy: UploadCopy;
-  debugEnabled: boolean;
-  excludedFrameCount: number;
-  frameCount: number;
-  job: JobSummary | null;
-  jobError: string | null;
-  language: Language;
-  previewBytes: number;
-  rawCompositeProgress: CompositeProgress | null;
-  rawCompositeStatus: RawCompositeStatus;
-  resultLabel: SourceExportFormat | null;
-  setSourceExportFormat?: (format: SourceExportFormat) => void;
-  stepActions?: ReactNode;
-  sourceExportEditable?: boolean;
-  showSourceExportFormat?: boolean;
-  sourceBytes: number;
-  sourceExportFormat?: SourceExportFormat;
-  uploadError: string | null;
-  uploadSummary: PreviewUploadSummary | null;
-  usedFrameCount: number;
+  phase: "preview" | "source";
 };
 
-export function JobStatusPanel({
-  alignmentMethod,
-  transformModel,
-  compressionRatio,
-  clientCompositeStatus,
-  clientWarnings,
-  copy,
-  debugEnabled,
-  excludedFrameCount,
-  frameCount,
-  job,
-  jobError,
-  language,
-  previewBytes,
-  rawCompositeProgress,
-  rawCompositeStatus,
-  resultLabel,
-  setSourceExportFormat,
-  stepActions,
-  sourceExportEditable = false,
-  showSourceExportFormat = false,
-  sourceBytes,
-  sourceExportFormat = "tiff",
-  uploadError,
-  uploadSummary,
-  usedFrameCount,
-}: JobStatusPanelProps) {
+export function JobStatusPanel({ phase }: JobStatusPanelProps) {
+  const {
+    alignmentMethod,
+    canOpenSourceStep,
+    canRunJob,
+    clientCompositeStatus,
+    clientWarnings,
+    compressionRatio,
+    copy,
+    excludedFrameCount,
+    frameCount,
+    isJobBusy,
+    job,
+    jobError,
+    language,
+    previewBytes,
+    rawCompositeProgress,
+    rawCompositeStatus,
+    resultLabel,
+    runRawComposite,
+    setCurrentStep,
+    setSourceExportFormat,
+    sourceBytes,
+    sourceExportFormat,
+    startSource,
+    transformModel,
+    uploadError,
+    uploadSummary,
+    usedFrameCount,
+  } = useStackingWorkspace();
+  const isPreviewPhase = phase === "preview";
+  const sourceExportEditable = isPreviewPhase;
+
   const otherWarningCount = clientWarnings.filter(
     (warning) => warning.code !== "TRANSFORM_ESTIMATE_FAILED",
   ).length;
@@ -124,31 +94,28 @@ export function JobStatusPanel({
           <strong>{copy.execution.usedFramesSummary(usedFrameCount, frameCount)}</strong>
         </div>
       </div>
-      {showSourceExportFormat ? (
-        <div className={styles["source-export-control"]}>
-          {sourceExportEditable ? (
-            <label className={sharedStyles.field}>
-              <span>{copy.execution.outputFormat}</span>
-              <select
-                value={sourceExportFormat}
-                disabled={!setSourceExportFormat}
-                onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-                  setSourceExportFormat?.(event.currentTarget.value as SourceExportFormat)
-                }
-              >
-                <option value="tiff">{copy.execution.outputFormats.tiff}</option>
-                <option value="png">{copy.execution.outputFormats.png}</option>
-                <option value="jpeg">{copy.execution.outputFormats.jpeg}</option>
-              </select>
-            </label>
-          ) : (
-            <div className={sharedStyles["readonly-field"]}>
-              <span>{copy.execution.outputFormat}</span>
-              <strong>{copy.execution.outputFormats[sourceExportFormat]}</strong>
-            </div>
-          )}
-        </div>
-      ) : null}
+      <div className={styles["source-export-control"]}>
+        {sourceExportEditable ? (
+          <label className={sharedStyles.field}>
+            <span>{copy.execution.outputFormat}</span>
+            <select
+              value={sourceExportFormat}
+              onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+                setSourceExportFormat(event.currentTarget.value as SourceExportFormat)
+              }
+            >
+              <option value="tiff">{copy.execution.outputFormats.tiff}</option>
+              <option value="png">{copy.execution.outputFormats.png}</option>
+              <option value="jpeg">{copy.execution.outputFormats.jpeg}</option>
+            </select>
+          </label>
+        ) : (
+          <div className={sharedStyles["readonly-field"]}>
+            <span>{copy.execution.outputFormat}</span>
+            <strong>{copy.execution.outputFormats[sourceExportFormat]}</strong>
+          </div>
+        )}
+      </div>
       {uploadError ? <p className={sharedStyles["inline-error"]}>{uploadError}</p> : null}
       {jobError ? <p className={sharedStyles["inline-error"]}>{jobError}</p> : null}
       {job?.status === "failed" && job.error ? <p className={sharedStyles["inline-error"]}>{job.error}</p> : null}
@@ -186,7 +153,45 @@ export function JobStatusPanel({
           ) : null}
         </div>
       ) : null}
-      {stepActions ? <div className={sharedStyles["panel-step-actions"]}>{stepActions}</div> : null}
+      <div className={sharedStyles["panel-step-actions"]}>
+        {isPreviewPhase ? (
+          <>
+            <button
+              type="button"
+              className={classNames(sharedStyles["secondary-action"], sharedStyles["step-back-action"])}
+              onClick={() => setCurrentStep("upload")}
+            >
+              {copy.steps.backToUpload}
+            </button>
+            <button
+              type="button"
+              className={classNames(sharedStyles["primary-action"], sharedStyles["step-forward-action"])}
+              disabled={!canOpenSourceStep}
+              onClick={startSource}
+            >
+              {copy.steps.startSource}
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={classNames(sharedStyles["secondary-action"], sharedStyles["step-back-action"])}
+              onClick={() => setCurrentStep("preview")}
+            >
+              {copy.steps.backToPreview}
+            </button>
+            <button
+              type="button"
+              className={sharedStyles["primary-action"]}
+              disabled={!canRunJob || isJobBusy}
+              onClick={runRawComposite}
+            >
+              {copy.execution.runRawStack}
+            </button>
+          </>
+        )}
+      </div>
     </section>
   );
 }

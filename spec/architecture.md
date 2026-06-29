@@ -33,6 +33,8 @@ stella-comp/
 
 フロントエンドの feature は URL や一時的な画面フェーズではなく、業務上のまとまりで分ける。現在の星景写真合成フローは `apps/web/src/features/stacking` を正とし、アップロード、プレビュー合成、本画像合成は同 feature 内の状態遷移として扱う。feature 内は `components/`、`hooks/`、`api/`、`processing/`、`model/` に分ける。フェーズ単位のディレクトリは、専用 UI とロジックが十分に独立してから追加する。UI 固有 CSS は `app/globals.css` に置かず feature 近くの CSS Modules に置く。`app/globals.css` はデザイントークン、reset、アプリ全体の最低限の base style に限定する。
 
+`features/stacking` のワークフロー状態は、アプリ全体の global store ではなく feature-local な Zustand store と provider で扱う。`StackingWorkspace` はレイアウトとステップ分岐に寄せ、言語、現在ステップ、位置合わせ方式、変換モデル、書き出し形式、キュー、preview upload、合成ジョブ状態は feature 内の context/hook から必要なコンポーネントが読む。等倍確認のカーソル位置や表示モードなど、単一コンポーネントで完結する表示状態は local state のまま保持する。
+
 ### apps/api
 
 - REST API
