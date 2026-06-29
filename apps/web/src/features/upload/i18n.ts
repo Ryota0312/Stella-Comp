@@ -99,6 +99,12 @@ export const uploadCopy = {
       uploadedSummary: (count: number, bytes: string) =>
         `${count} 件のプレビューファイルをアップロードしました（${bytes}）。`,
       warningsLabel: "位置合わせ警告",
+      usedFrames: "使用フレーム",
+      usedFramesSummary: (used: number, selected: number) => `${used} / ${selected} フレーム`,
+      transformEstimateFailedWarning: (count: number) =>
+        `変換行列を推定できなかった ${count} フレームを合成から除外しました。`,
+      alignmentWarningSummary: (count: number) =>
+        `位置合わせで ${count} 件の注意事項があります。詳細は staging debug で確認してください。`,
       rawStackStatus: "RAW合成",
     },
     result: {
@@ -159,6 +165,7 @@ export const uploadCopy = {
       warnings: "warnings",
       rawProgress: "raw progress",
       warningCodes: "warning codes",
+      warningDetails: "warning details",
     },
     queueNotes: {
       queued: "キューに追加済み",
@@ -310,6 +317,12 @@ export const uploadCopy = {
       uploadedSummary: (count: number, bytes: string) =>
         `Uploaded ${count} preview files (${bytes}).`,
       warningsLabel: "Alignment warnings",
+      usedFrames: "Used frames",
+      usedFramesSummary: (used: number, selected: number) => `${used} / ${selected} frames`,
+      transformEstimateFailedWarning: (count: number) =>
+        `Excluded ${count} frames because their transform could not be estimated.`,
+      alignmentWarningSummary: (count: number) =>
+        `${count} alignment warnings need attention. Details are available in staging debug.`,
       rawStackStatus: "RAW stack",
     },
     result: {
@@ -371,6 +384,7 @@ export const uploadCopy = {
       warnings: "warnings",
       rawProgress: "raw progress",
       warningCodes: "warning codes",
+      warningDetails: "warning details",
     },
     queueNotes: {
       queued: "Queued",

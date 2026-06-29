@@ -11,6 +11,7 @@ type StackSourceOptions = {
   transforms: ImageTransform[];
   baseImageIndex: number;
   exportFormat: SourceExportFormat;
+  excludedImageIndexes?: Set<number>;
   onProgress?: (progress: { current: number; total: number; label: string }) => void;
 };
 
@@ -23,6 +24,7 @@ type LoadedSourceImage = {
 
 export async function stackSourceImages({
   exportFormat,
+  excludedImageIndexes = new Set(),
   items,
   itemIds,
   onProgress,
@@ -39,7 +41,8 @@ export async function stackSourceImages({
     throw new Error("Base image index is out of range");
   }
 
-  const totalProgress = orderedItems.length * 2 + 2;
+  const usedItemsCount = orderedItems.filter((_, index) => !excludedImageIndexes.has(index)).length;
+  const totalProgress = usedItemsCount * 2 + 2;
   let completedProgress = 0;
   const reportProgress = (label: string) => {
     onProgress?.({ current: completedProgress, total: totalProgress, label });
@@ -71,6 +74,10 @@ export async function stackSourceImages({
   let referencePreviewBlob: Blob | null = null;
 
   for (const [index, item] of orderedItems.entries()) {
+    if (excludedImageIndexes.has(index)) {
+      continue;
+    }
+
     reportProgress(item.name);
     const source = await loadSourceImage(item);
     completedProgress += 1;

@@ -59,6 +59,7 @@ export function useCompositeJob({
   const [resultDownloadFileName, setResultDownloadFileName] = useState<string | null>(null);
   const [resultLabel, setResultLabel] = useState<CompositeOutput["label"] | null>(null);
   const [lastAlignment, setLastAlignment] = useState<PreviewAlignmentSummary | null>(null);
+  const [excludedImageIndexes, setExcludedImageIndexes] = useState<number[]>([]);
   const resultPreviewUrlRef = useRef<string | null>(null);
   const resultReferencePreviewUrlRef = useRef<string | null>(null);
   const resultDownloadUrlRef = useRef<string | null>(null);
@@ -87,6 +88,7 @@ export function useCompositeJob({
     setRawCompositeProgress(null);
     setClientWarnings([]);
     setLastAlignment(null);
+    setExcludedImageIndexes([]);
     if (resultPreviewUrlRef.current) {
       URL.revokeObjectURL(resultPreviewUrlRef.current);
       resultPreviewUrlRef.current = null;
@@ -153,6 +155,7 @@ export function useCompositeJob({
       );
       setLastAlignment(alignment);
       setClientWarnings(alignment.warnings ?? []);
+      setExcludedImageIndexes(failedTransformIndexes(alignment.transforms, baseImageIndex));
       return alignment;
     },
     [alignmentMethod, transformModel],
@@ -183,6 +186,7 @@ export function useCompositeJob({
       const result = await stackPreviewImages({
         items,
         itemIds: uploadedItemIdsRef.current,
+        excludedImageIndexes: new Set(failedTransformIndexes(alignment.transforms, baseImageIndex)),
         transforms: alignment.transforms,
         baseImageIndex,
       });
@@ -231,16 +235,19 @@ export function useCompositeJob({
         lastAlignment.transformModel === transformModel
       ) {
         transforms = lastAlignment.transforms;
+        setExcludedImageIndexes(failedTransformIndexes(transforms, baseImageIndex));
       } else {
         setClientCompositeStatus("estimating");
         const alignment = await estimateAlignment(summary, baseImageIndex);
         transforms = alignment.transforms;
         setClientCompositeStatus("idle");
       }
+      const excludedIndexes = failedTransformIndexes(transforms, baseImageIndex);
 
       setRawCompositeStatus("developing");
       const result = await stackSourceImages({
         exportFormat: sourceExportFormat,
+        excludedImageIndexes: new Set(excludedIndexes),
         items,
         itemIds: uploadedItemIdsRef.current,
         onProgress: setRawCompositeProgress,
@@ -277,6 +284,7 @@ export function useCompositeJob({
     clearJobState,
     clientCompositeStatus,
     clientWarnings,
+    excludedFrameCount: excludedImageIndexes.length,
     isJobBusy,
     job,
     jobError,
@@ -289,5 +297,12 @@ export function useCompositeJob({
     resultPreviewUrl,
     runComposite,
     runRawComposite,
+    usedFrameCount: Math.max(items.length - excludedImageIndexes.length, 0),
   };
+}
+
+function failedTransformIndexes(transforms: ImageTransform[], baseImageIndex: number) {
+  return transforms
+    .filter((transform) => !transform.estimated && transform.imageIndex !== baseImageIndex)
+    .map((transform) => transform.imageIndex);
 }

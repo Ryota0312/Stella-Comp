@@ -7,6 +7,7 @@ type StackPreviewOptions = {
   itemIds: string[];
   transforms: ImageTransform[];
   baseImageIndex: number;
+  excludedImageIndexes?: Set<number>;
 };
 
 type LoadedCanvasImage = {
@@ -21,6 +22,7 @@ export async function stackPreviewImages({
   itemIds,
   transforms,
   baseImageIndex,
+  excludedImageIndexes = new Set(),
 }: StackPreviewOptions): Promise<CompositeOutput> {
   const orderedItems = itemIds
     .map((id) => items.find((item) => item.id === id))
@@ -53,6 +55,10 @@ export async function stackPreviewImages({
   const transformsByIndex = new Map(transforms.map((transform) => [transform.imageIndex, transform]));
 
   for (const [index, item] of orderedItems.entries()) {
+    if (excludedImageIndexes.has(index)) {
+      continue;
+    }
+
     const loadedImage = await loadCanvasImage(item.previewBlob as Blob);
     const transform = transformsByIndex.get(index);
 

@@ -94,6 +94,7 @@ export function UploadWorkspace() {
     clearJobState,
     clientCompositeStatus,
     clientWarnings,
+    excludedFrameCount,
     isJobBusy,
     job,
     jobError,
@@ -106,6 +107,7 @@ export function UploadWorkspace() {
     resultReferencePreviewUrl,
     runComposite,
     runRawComposite,
+    usedFrameCount,
   } = useCompositeJob({
     activeId,
     alignmentMethod,
@@ -227,6 +229,7 @@ export function UploadWorkspace() {
               clientWarnings={clientWarnings}
               copy={copy}
               debugEnabled={debugEnabled}
+              excludedFrameCount={excludedFrameCount}
               frameCount={items.length}
               job={job}
               jobError={jobError}
@@ -261,6 +264,7 @@ export function UploadWorkspace() {
               }
               uploadError={uploadError}
               uploadSummary={uploadSummary}
+              usedFrameCount={usedFrameCount}
             />
 
             <ResultPanel
@@ -289,6 +293,7 @@ export function UploadWorkspace() {
               clientWarnings={clientWarnings}
               copy={copy}
               debugEnabled={debugEnabled}
+              excludedFrameCount={excludedFrameCount}
               frameCount={items.length}
               job={job}
               jobError={jobError}
@@ -322,6 +327,7 @@ export function UploadWorkspace() {
               }
               uploadError={uploadError}
               uploadSummary={uploadSummary}
+              usedFrameCount={usedFrameCount}
             />
 
             <ResultPanel

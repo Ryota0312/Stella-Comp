@@ -24,6 +24,7 @@ type JobStatusPanelProps = {
   clientWarnings: ProcessingWarning[];
   copy: UploadCopy;
   debugEnabled: boolean;
+  excludedFrameCount: number;
   frameCount: number;
   job: JobSummary | null;
   jobError: string | null;
@@ -40,6 +41,7 @@ type JobStatusPanelProps = {
   sourceExportFormat?: SourceExportFormat;
   uploadError: string | null;
   uploadSummary: PreviewUploadSummary | null;
+  usedFrameCount: number;
 };
 
 export function JobStatusPanel({
@@ -50,6 +52,7 @@ export function JobStatusPanel({
   clientWarnings,
   copy,
   debugEnabled,
+  excludedFrameCount,
   frameCount,
   job,
   jobError,
@@ -66,7 +69,15 @@ export function JobStatusPanel({
   sourceExportFormat = "tiff",
   uploadError,
   uploadSummary,
+  usedFrameCount,
 }: JobStatusPanelProps) {
+  const otherWarningCount = clientWarnings.filter(
+    (warning) => warning.code !== "TRANSFORM_ESTIMATE_FAILED",
+  ).length;
+  const visibleWarnings = [
+    excludedFrameCount > 0 ? copy.execution.transformEstimateFailedWarning(excludedFrameCount) : null,
+    otherWarningCount > 0 ? copy.execution.alignmentWarningSummary(otherWarningCount) : null,
+  ].filter((warning): warning is string => Boolean(warning));
   const debugRows = debugEnabled
     ? [
         [copy.debug.previewPayload, `${formatBytes(previewBytes)} / ${formatBytes(sourceBytes)}`],
@@ -79,6 +90,12 @@ export function JobStatusPanel({
         [copy.debug.transformModel, transformModel],
         [copy.debug.output, resultLabel ?? "-"],
         [copy.debug.warnings, `${clientWarnings.length}`],
+        [
+          copy.debug.warningDetails,
+          clientWarnings.length
+            ? clientWarnings.map((warning) => `${warning.code}: ${warning.message}`).join(" / ")
+            : "-",
+        ],
       ]
     : [];
 
@@ -100,8 +117,8 @@ export function JobStatusPanel({
           <strong>{copy.execution.transformModels[transformModel]}</strong>
         </div>
         <div className="readonly-field">
-          <span>{copy.timeline.selectedFrames}</span>
-          <strong>{copy.hero.frames(frameCount)}</strong>
+          <span>{copy.execution.usedFrames}</span>
+          <strong>{copy.execution.usedFramesSummary(usedFrameCount, frameCount)}</strong>
         </div>
       </div>
       {showSourceExportFormat ? (
@@ -132,12 +149,12 @@ export function JobStatusPanel({
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
       {jobError ? <p className="inline-error">{jobError}</p> : null}
       {job?.status === "failed" && job.error ? <p className="inline-error">{job.error}</p> : null}
-      {clientWarnings.length ? (
+      {visibleWarnings.length ? (
         <div className="warning-list" aria-label={copy.execution.warningsLabel}>
-          {clientWarnings.map((warning, index) => (
-            <p key={`${warning.code}-${index}`}>
-              <strong>{warning.code}</strong>
-              <span>{warning.message}</span>
+          {visibleWarnings.map((warning, index) => (
+            <p key={index}>
+              <strong>{copy.execution.warningsLabel}</strong>
+              <span>{warning}</span>
             </p>
           ))}
         </div>
