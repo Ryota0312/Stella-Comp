@@ -178,13 +178,13 @@ export const uploadCopy = {
         message
           ? `RAW現像に失敗したため埋め込みJPEGへ切り替えます: ${message}`
           : "RAW現像に失敗したため埋め込みJPEGへ切り替えます",
-      extractingEmbeddedJpeg: "埋め込みJPEGを抽出中",
-      embeddedJpegPreviewExtracted: (bytes: string) =>
-        `埋め込みJPEGプレビューを抽出しました（${bytes}）`,
-      embeddedJpegPreviewUnavailable: (message?: string) =>
+      extractingRawThumbnail: "RAWサムネイルを抽出中",
+      rawThumbnailPreviewExtracted: (bytes: string, source: string) =>
+        `RAWサムネイルプレビューを抽出しました（${bytes}, ${sourceLabel(source, "ja")}）`,
+      rawThumbnailPreviewUnavailable: (message?: string) =>
         message
-          ? `埋め込みJPEGプレビューを利用できません: ${message}`
-          : "埋め込みJPEGプレビューを利用できません",
+          ? `RAWサムネイルプレビューを利用できません: ${message}`
+          : "RAWサムネイルプレビューを利用できません",
       browserDecodeUnavailable: "ブラウザでプレビューをデコードできません",
       generatingJpegPreview: "JPEGプレビューを生成中",
       previewReady: "プレビュー準備完了",
@@ -400,10 +400,11 @@ export const uploadCopy = {
         message
           ? `RAW develop failed; falling back to embedded JPEG: ${message}`
           : "RAW develop failed; falling back to embedded JPEG",
-      extractingEmbeddedJpeg: "Extracting embedded JPEG",
-      embeddedJpegPreviewExtracted: (bytes: string) => `Embedded JPEG preview extracted (${bytes})`,
-      embeddedJpegPreviewUnavailable: (message?: string) =>
-        message ? `Embedded JPEG preview unavailable: ${message}` : "Embedded JPEG preview unavailable",
+      extractingRawThumbnail: "Extracting RAW thumbnail",
+      rawThumbnailPreviewExtracted: (bytes: string, source: string) =>
+        `RAW thumbnail preview extracted (${bytes}, ${sourceLabel(source, "en")})`,
+      rawThumbnailPreviewUnavailable: (message?: string) =>
+        message ? `RAW thumbnail preview unavailable: ${message}` : "RAW thumbnail preview unavailable",
       browserDecodeUnavailable: "Browser preview decode is unavailable",
       generatingJpegPreview: "Generating JPEG preview",
       previewReady: "Preview ready",
@@ -468,6 +469,14 @@ export function rawCompositeStatusText(status: RawCompositeStatus, language: Lan
   return uploadCopy[language].statuses.raw[status];
 }
 
+function sourceLabel(source: string, language: Language) {
+  if (source === "embedded-jpeg-scan") {
+    return language === "ja" ? "best-effort JPEG scan fallback" : "best-effort JPEG scan fallback";
+  }
+
+  return "LibRaw thumbnail";
+}
+
 export function queueNoteText(note: QueueNote, language: Language) {
   const copy = uploadCopy[language].queueNotes;
 
@@ -482,12 +491,12 @@ export function queueNoteText(note: QueueNote, language: Language) {
       return copy.rawPreviewUnavailable(note.detail);
     case "rawPreviewFallbackToEmbeddedJpeg":
       return copy.rawPreviewFallbackToEmbeddedJpeg(note.detail);
-    case "extractingEmbeddedJpeg":
-      return copy.extractingEmbeddedJpeg;
-    case "embeddedJpegPreviewExtracted":
-      return copy.embeddedJpegPreviewExtracted(note.bytes);
-    case "embeddedJpegPreviewUnavailable":
-      return copy.embeddedJpegPreviewUnavailable(note.detail);
+    case "extractingRawThumbnail":
+      return copy.extractingRawThumbnail;
+    case "rawThumbnailPreviewExtracted":
+      return copy.rawThumbnailPreviewExtracted(note.bytes, note.source);
+    case "rawThumbnailPreviewUnavailable":
+      return copy.rawThumbnailPreviewUnavailable(note.detail);
     case "browserDecodeUnavailable":
       return copy.browserDecodeUnavailable;
     case "generatingJpegPreview":

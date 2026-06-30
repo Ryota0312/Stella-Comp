@@ -24,7 +24,7 @@ stella-comp/
 - 画像アップロード UI
 - 軽量プレビュー画像の生成
 - RAW ファイルの受け付けとブラウザ WASM による RAW 現像
-- RAW ファイル内の埋め込み JPEG プレビュー抽出フォールバック
+- RAW ファイル内の LibRaw thumbnail 抽出と埋め込み JPEG プレビュー抽出フォールバック
 - 基準画像と処理設定の入力
 - 低解像度の位置合わせプレビュー表示
 - ブラウザ Canvas/Worker による preview 合成と将来の元画像合成
@@ -123,14 +123,14 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 
 この構成により、特徴点検出とマッチングの負荷を下げつつ、最終成果物の画質は元画像ベースで維持する。
 
-初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は D&D 直後には重い現像をせず、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出して preview JPEG 生成に使う。この抽出は RAW コンテナやメーカー固有メタデータを解析しない best-effort fallback であり、CR2/CR3/DNG/NEF/ARW/RAF/ORF/RW2 などすべての RAW で成功を保証するものではない。preview JPEG のアップロード、位置合わせ推定、preview 合成は D&D 後に自動実行する。ユーザーが preview 合成結果を確認して本画像合成ステップへ進んだ時点で、`libraw-wasm` のブラウザ側現像を実行し、現像できた RGB 画像を元画像合成に使う。RAW 現像と元画像合成中は、通常 UI では百分率の進捗を表示し、内部ステップ数ベースの進捗は staging debug に限定して表示する。本画像合成ステップ内の実行ボタンは再実行や将来のオプション変更後の実行操作として残す。埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱う。
+初期 Web 実装では、ブラウザで直接デコードできる JPEG/PNG/WebP/AVIF から軽量 JPEG を生成する。RAW は D&D 直後には重い現像をせず、まず `libraw-wasm` の `thumbnailData()` で JPEG thumbnail を抽出して preview JPEG 生成に使う。LibRaw thumbnail が利用できない場合は、Web Worker でファイル内の JPEG SOI/EOI marker を走査し、最大の埋め込み JPEG 候補を抽出する best-effort fallback に切り替える。この fallback は RAW コンテナやメーカー固有メタデータを解析しないため、CR2/CR3/DNG/NEF/ARW/RAF/ORF/RW2 などすべての RAW で成功を保証するものではない。preview JPEG のアップロード、位置合わせ推定、preview 合成は D&D 後に自動実行する。ユーザーが preview 合成結果を確認して本画像合成ステップへ進んだ時点で、`libraw-wasm` のブラウザ側現像を実行し、現像できた RGB 画像を元画像合成に使う。RAW 現像と元画像合成中は、通常 UI では百分率の進捗を表示し、内部ステップ数ベースの進捗は staging debug に限定して表示する。本画像合成ステップ内の実行ボタンは再実行や将来のオプション変更後の実行操作として残す。preview を抽出できない RAW は、現時点では `RAW pending` として扱う。
 
 RAW プレビュー抽出の中長期方針:
 
-- 第一候補は LibRaw の thumbnail extraction 相当を利用できるようにすること。現在利用している `libraw-wasm` は現像済み `imageData()` 中心の API で、サムネイル抽出 API が公開されていないため、fork/拡張または別 WASM wrapper を検討する。
+- 第一候補は公開版 `libraw-wasm@1.5.0` の `thumbnailData()` を使い、LibRaw の thumbnail extraction 相当をブラウザ内で利用すること。
 - 堅牢性を優先する場合は、preview 抽出だけを Go API または Rust worker 側のサーバー処理へ逃がし、LibRaw、ExifTool、exiv2 など実績のあるライブラリで抽出する。ただし通常フローの元画像アップロード量とサーバー負荷が増えるため、個人検証段階では opt-in または fallback として扱う。
 - DNG は TIFF/IFD 系の公開仕様に寄せて比較的正攻法で扱えるため、DNG の thumbnail/preview IFD 解析を先に追加し、メーカー独自 RAW は LibRaw 系へ寄せる案を検討する。
-- 実機 RAW サンプルを形式別に追加し、埋め込み JPEG 抽出成功、`libraw-wasm` 現像成功、preview 座標と本画像座標の対応を回帰テスト化する。
+- 実機 RAW サンプルを形式別に追加し、LibRaw thumbnail 抽出、fallback の埋め込み JPEG 抽出、`libraw-wasm` 現像成功、preview 座標と本画像座標の対応を回帰テスト化する。
 
 注意すべき座標変換:
 

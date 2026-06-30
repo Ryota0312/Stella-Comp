@@ -14,6 +14,7 @@ export type DevelopedRawImage = {
 type RawPreviewResult = {
   blob: Blob;
   extractedBytes: number;
+  source: "libraw-thumbnail" | "embedded-jpeg-scan";
 };
 
 type WorkerResponse =
@@ -139,7 +140,14 @@ function toRgba8(
   return rgba;
 }
 
-export async function extractEmbeddedJpegFromRaw(file: File): Promise<RawPreviewResult> {
+export async function extractRawPreviewFromRaw(file: File): Promise<RawPreviewResult> {
+  try {
+    return await extractLibRawThumbnailJpeg(file);
+  } catch {
+    // Best-effort fallback: scan for embedded JPEG bytes without parsing the
+    // RAW container when LibRaw cannot provide a directly usable JPEG thumbnail.
+  }
+
   const id = crypto.randomUUID();
   const buffer = await file.arrayBuffer();
   const worker = getRawPreviewWorker();
@@ -166,6 +174,7 @@ export async function extractEmbeddedJpegFromRaw(file: File): Promise<RawPreview
       resolve({
         blob: new Blob([message.jpeg], { type: "image/jpeg" }),
         extractedBytes: message.sourceEnd - message.sourceStart,
+        source: "embedded-jpeg-scan",
       });
     };
 
@@ -178,6 +187,36 @@ export async function extractEmbeddedJpegFromRaw(file: File): Promise<RawPreview
     worker.addEventListener("error", handleError);
     worker.postMessage({ id, buffer }, [buffer]);
   });
+}
+
+async function extractLibRawThumbnailJpeg(file: File): Promise<RawPreviewResult> {
+  const { default: LibRaw } = await import("libraw-wasm");
+  const raw = new LibRaw();
+
+  try {
+    const buffer = await file.arrayBuffer();
+    await raw.open(new Uint8Array(buffer));
+    const thumbnail = await raw.thumbnailData();
+
+    if (!thumbnail?.data?.byteLength) {
+      throw new Error("LibRaw thumbnail was not found");
+    }
+
+    if (thumbnail.format !== "jpeg") {
+      throw new Error(`LibRaw thumbnail format is ${thumbnail.format}`);
+    }
+
+    const jpegBuffer = new ArrayBuffer(thumbnail.data.byteLength);
+    new Uint8Array(jpegBuffer).set(thumbnail.data);
+
+    return {
+      blob: new Blob([jpegBuffer], { type: "image/jpeg" }),
+      extractedBytes: jpegBuffer.byteLength,
+      source: "libraw-thumbnail",
+    };
+  } finally {
+    raw.dispose();
+  }
 }
 
 function getRawPreviewWorker() {

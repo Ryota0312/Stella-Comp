@@ -9,7 +9,7 @@ import type { QueueItem } from "../model/types";
 import { createQueueItem, formatBytes } from "../model/utils";
 import {
   createPreviewJpeg,
-  extractEmbeddedJpegFromRaw,
+  extractRawPreviewFromRaw,
 } from "../processing/previewGeneration";
 
 type UseUploadQueueOptions = {
@@ -67,13 +67,13 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
       if (rawExtensions.has(item.extension)) {
         updateItem(item.id, {
           status: "generating",
-          note: { code: "extractingEmbeddedJpeg" },
+          note: { code: "extractingRawThumbnail" },
         });
 
         try {
-          const embeddedPreview = await extractEmbeddedJpegFromRaw(item.file);
+          const rawPreview = await extractRawPreviewFromRaw(item.file);
           const preview = await createPreviewJpeg(
-            embeddedPreview.blob,
+            rawPreview.blob,
             previewMaxEdge,
             previewJpegQuality,
           );
@@ -82,7 +82,11 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
 
           updateItem(item.id, {
             status: "ready",
-            note: { code: "embeddedJpegPreviewExtracted", bytes: formatBytes(embeddedPreview.extractedBytes) },
+            note: {
+              code: "rawThumbnailPreviewExtracted",
+              bytes: formatBytes(rawPreview.extractedBytes),
+              source: rawPreview.source,
+            },
             previewBlob: preview.blob,
             previewSize: preview.blob.size,
             previewUrl,
@@ -93,7 +97,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
           updateItem(item.id, {
             status: "raw-pending",
             note: {
-              code: "embeddedJpegPreviewUnavailable",
+              code: "rawThumbnailPreviewUnavailable",
               detail: error instanceof Error ? error.message : undefined,
             },
           });

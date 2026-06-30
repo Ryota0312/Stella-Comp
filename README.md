@@ -259,8 +259,8 @@ mise exec -- cargo check
 - `crates/worker` は Protocol Buffers の `ImageProcessor` を実装する Rust gRPC server です。
 - サーバー負荷を抑えるため、RAW 現像や将来の元画像合成は可能な範囲でブラウザ WASM/Canvas/Worker 側へ寄せます。Rust worker は当面、preview JPEG の位置合わせ推定とサーバー合成比較用に使います。
 - RAW/CR3 ファイルはブラウザに D&D できます。
-- D&D 直後の RAW は重い現像をせず、まず埋め込み JPEG 候補を抽出して preview JPEG 生成に使います。
-- CR2 など埋め込み preview を抽出できない RAW は、現時点では `RAW pending` として扱います。
+- D&D 直後の RAW は重い現像をせず、まず `libraw-wasm` の thumbnail 抽出を使って preview JPEG 生成に使います。失敗時は埋め込み JPEG marker scan に fallback します。
+- CR2 など preview を抽出できない RAW は、現時点では `RAW pending` として扱います。
 - 圧縮後の preview JPEG は Go API の `/api/preview-uploads` にアップロードします。
 - 現在の Web UI は、アップロード済み preview JPEG を `/api/preview-alignments` の非同期ジョブ経由で Rust worker に渡し、完了後に返却された変換行列でブラウザ側プレビュー合成を実行します。
 - preview 合成確認後、`RAW現像して合成` で `libraw-wasm` によるブラウザ側 RAW 現像、preview 座標系から元画像座標系への変換行列補正、元画像ベースの加算平均合成を試します。画面表示と等倍確認には PNG preview を生成し、本処理成果物はプレビュー合成後の画面で TIFF / PNG / JPEG から選んでダウンロードします。TIFF は後処理向け、PNG は劣化なしの 8bit 出力、JPEG はスマホ保存・共有向けの軽量出力として扱います。

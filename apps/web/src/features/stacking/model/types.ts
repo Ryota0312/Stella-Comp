@@ -14,9 +14,9 @@ export type QueueNote =
   | { code: "rawPreviewDeveloped"; width: number; height: number; elapsedMs: number }
   | { code: "rawPreviewUnavailable"; detail?: string }
   | { code: "rawPreviewFallbackToEmbeddedJpeg"; detail?: string }
-  | { code: "extractingEmbeddedJpeg" }
-  | { code: "embeddedJpegPreviewExtracted"; bytes: string }
-  | { code: "embeddedJpegPreviewUnavailable"; detail?: string }
+  | { code: "extractingRawThumbnail" }
+  | { code: "rawThumbnailPreviewExtracted"; bytes: string; source: "libraw-thumbnail" | "embedded-jpeg-scan" }
+  | { code: "rawThumbnailPreviewUnavailable"; detail?: string }
   | { code: "browserDecodeUnavailable" }
   | { code: "generatingJpegPreview" }
   | { code: "previewReady" }
