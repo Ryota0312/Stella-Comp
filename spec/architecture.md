@@ -128,6 +128,7 @@ API エンドポイントは `/api/*` 配下に固定する。大容量アップ
 RAW プレビュー抽出の中長期方針:
 
 - 第一候補は公開版 `libraw-wasm@1.5.0` の `thumbnailData()` を使い、LibRaw の thumbnail extraction 相当をブラウザ内で利用すること。
+- `libraw-wasm@1.5.0` は Emscripten pthread worker を含むため、Next.js production build で `em-pthread` chunk 由来の circular dependency warning が出ることがある。これは webpack の chunk runtime/hash 依存に関する警告であり、現時点では RAW preview 抽出や RAW 現像の実行時問題として扱わない。CI ログのノイズや実際の cache/runtime 問題になった場合だけ、`em-pthread` に限定した warning 抑制、または `libraw-wasm` 配布物を public asset として読み込む local wrapper 化を検討する。
 - 堅牢性を優先する場合は、preview 抽出だけを Go API または Rust worker 側のサーバー処理へ逃がし、LibRaw、ExifTool、exiv2 など実績のあるライブラリで抽出する。ただし通常フローの元画像アップロード量とサーバー負荷が増えるため、個人検証段階では opt-in または fallback として扱う。
 - DNG は TIFF/IFD 系の公開仕様に寄せて比較的正攻法で扱えるため、DNG の thumbnail/preview IFD 解析を先に追加し、メーカー独自 RAW は LibRaw 系へ寄せる案を検討する。
 - 実機 RAW サンプルを形式別に追加し、LibRaw thumbnail 抽出、fallback の埋め込み JPEG 抽出、`libraw-wasm` 現像成功、preview 座標と本画像座標の対応を回帰テスト化する。
