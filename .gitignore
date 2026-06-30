@@ -13,6 +13,8 @@ coverage/
 *.tsbuildinfo
 target/
 .data/
+.gocache/
+.gomodcache/
 apps/api/.gocache/
 apps/api/.gomodcache/
 apps/web/.pnpm-store/
