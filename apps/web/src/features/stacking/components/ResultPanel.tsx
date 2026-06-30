@@ -325,9 +325,7 @@ function processingOverlayForState({
 }
 
 function ProcessingOverlay({ overlay }: { overlay: ProcessingOverlayState }) {
-  const progressPercent = overlay.progress
-    ? Math.min((overlay.progress.current / Math.max(overlay.progress.total, 1)) * 100, 100)
-    : null;
+  const progressPercent = overlay.progress ? progressPercentFor(overlay.progress) : null;
 
   return (
     <div className={styles["result-processing-overlay"]} aria-live="polite" aria-busy="true">
@@ -342,13 +340,12 @@ function ProcessingOverlay({ overlay }: { overlay: ProcessingOverlayState }) {
             className={styles["result-processing-progress"]}
             role="progressbar"
             aria-valuemin={0}
-            aria-valuemax={overlay.progress.total}
-            aria-valuenow={overlay.progress.current}
+            aria-valuemax={100}
+            aria-valuenow={progressPercent ?? 0}
+            aria-valuetext={`${progressPercent ?? 0}%`}
           >
             <div className={styles["result-processing-progress-header"]}>
-              <span>
-                {overlay.progress.current} / {overlay.progress.total}
-              </span>
+              <span>{progressPercent}%</span>
             </div>
             <div className={styles["result-processing-progress-bar"]} aria-hidden="true">
               <div
@@ -361,6 +358,15 @@ function ProcessingOverlay({ overlay }: { overlay: ProcessingOverlayState }) {
       </div>
     </div>
   );
+}
+
+function progressPercentFor(progress: CompositeProgress) {
+  if (progress.total <= 0) {
+    return 0;
+  }
+
+  const percent = Math.round((progress.current / progress.total) * 100);
+  return Math.min(Math.max(percent, 0), 100);
 }
 
 function ResultActions({
