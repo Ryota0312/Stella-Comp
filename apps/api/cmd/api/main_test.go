@@ -357,7 +357,7 @@ func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	if job.AlignmentMethod != "akaze" {
 		t.Fatalf("default alignment method = %q", job.AlignmentMethod)
 	}
-	if job.TransformModel != "affine" {
+	if job.TransformModel != "homography" {
 		t.Fatalf("default transform model = %q", job.TransformModel)
 	}
 }

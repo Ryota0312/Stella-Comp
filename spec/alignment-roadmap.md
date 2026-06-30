@@ -219,7 +219,7 @@ Local Warp
 
 ## 最初の実装プラン
 
-最初の実装は、UI の設定タイミング変更とホモグラフィを追加するための設計準備に絞る。既存の preview alignment API と `stars` / `akaze` の wire 互換性は維持し、`stars + affine` を標準のままにする。
+最初の実装は、UI の設定タイミング変更とホモグラフィを追加するための設計準備に絞る。既存の preview alignment API と `stars` / `akaze` の wire 互換性は維持する。
 
 ### 1. 検出手法選択をプレビュー前へ移動
 
@@ -244,10 +244,10 @@ Local Warp
 
 ## 次の実装プラン: Homography を Web まで追加
 
-次の実装では、検出方式 `stars` / `akaze` と変換モデル `affine` / `homography` を API と Web UI でも分けて扱う。標準は `stars + affine` のまま維持し、`homography` は実験的な高精度候補として選択できるようにする。
+次の実装では、検出方式 `stars` / `akaze` と変換モデル `affine` / `homography` を API と Web UI でも分けて扱う。現在の標準は `stars + homography` とし、`affine` は互換・比較用として選択できるようにする。
 
-- Web UI のアップロード画面で変換モデルを選択する。通常表示は `標準（アフィン）` / `高精度候補（ホモグラフィ）` とし、debug では raw 値も表示する。
-- HTTP JSON と Protocol Buffers に `transformModel` / `transform_model` を追加する。未指定または未知値は `affine` として扱う。
+- Web UI のアップロード画面で変換モデルを選択する。通常表示は `標準（ホモグラフィ）` / `互換（アフィン）` とし、debug では raw 値も表示する。
+- HTTP JSON と Protocol Buffers に `transformModel` / `transform_model` を追加する。未指定または未知値は `homography` として扱う。
 - Rust core は同じ対応点列から `estimateAffinePartial2D` または `findHomography` を呼び分ける。
 - `ImageTransform` は affine 用の 2x3 行列と homography 用の 3x3 行列を返す。既存互換のため `affine` は残す。
 - ブラウザ合成では affine は Canvas 2D transform、homography は逆変換 + bilinear sampling で適用する。
@@ -272,8 +272,8 @@ Local Warp
 ## 採用基準
 
 - 既存の preview alignment API と `stars` / `akaze` の互換性を壊さない。
-- `stars + affine` の現在挙動を標準として維持する。
-- ホモグラフィは最初から標準化せず、比較評価できる実験的方式として追加する。
+- `stars + homography` を標準として維持する。
+- アフィンは比較評価できる互換方式として残す。
 - 周辺部改善を評価するときは、平均残差だけでなく中央値残差、inlier 率、周辺部の星流れ、合成品質を合わせて見る。
 - 局所ワープ、TPS、多項式ワープは Phase 2 まで実装しない。
 - 天球モデルは Phase 3 の検討対象とし、当面の実装には含めない。

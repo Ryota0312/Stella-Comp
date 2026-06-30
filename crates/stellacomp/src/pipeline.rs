@@ -113,8 +113,8 @@ impl TransformModel {
 
     pub fn from_wire(value: &str) -> Self {
         match value {
-            "homography" => TransformModel::Homography,
-            _ => TransformModel::Affine,
+            "affine" => TransformModel::Affine,
+            _ => TransformModel::Homography,
         }
     }
 }
@@ -797,6 +797,14 @@ mod tests {
             AlignmentMethod::from_wire("unknown"),
             AlignmentMethod::Akaze
         );
+    }
+
+    #[test]
+    fn transform_model_from_wire_defaults_to_homography() {
+        assert_eq!(TransformModel::from_wire("homography"), TransformModel::Homography);
+        assert_eq!(TransformModel::from_wire("affine"), TransformModel::Affine);
+        assert_eq!(TransformModel::from_wire(""), TransformModel::Homography);
+        assert_eq!(TransformModel::from_wire("unknown"), TransformModel::Homography);
     }
 
     #[test]

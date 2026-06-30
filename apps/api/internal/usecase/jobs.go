@@ -285,10 +285,10 @@ func NormalizeAlignmentMethod(rawMethod string) string {
 
 func NormalizeTransformModel(rawModel string) string {
 	switch strings.TrimSpace(rawModel) {
-	case "homography":
-		return "homography"
-	default:
+	case "affine":
 		return "affine"
+	default:
+		return "homography"
 	}
 }
 

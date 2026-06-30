@@ -81,8 +81,8 @@ export const uploadCopy = {
       },
       transformModel: "変換モデル",
       transformModels: {
-        affine: "標準（アフィン）",
-        homography: "高精度候補（ホモグラフィ）",
+        affine: "互換（アフィン）",
+        homography: "標準（ホモグラフィ）",
       },
       previewPayload: "プレビュー容量",
       rawProgressLabel: "本画像処理の進捗",
@@ -302,8 +302,8 @@ export const uploadCopy = {
       },
       transformModel: "Transform model",
       transformModels: {
-        affine: "Standard (affine)",
-        homography: "High-precision candidate (homography)",
+        affine: "Compatible (affine)",
+        homography: "Default (homography)",
       },
       previewPayload: "Preview payload",
       rawProgressLabel: "Source image progress",

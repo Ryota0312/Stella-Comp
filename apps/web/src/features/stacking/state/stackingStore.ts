@@ -33,7 +33,7 @@ export const useStackingStore = create<StackingState>((set) => ({
   currentStep: "upload",
   language: initialLanguage(),
   sourceExportFormat: "tiff",
-  transformModel: "affine",
+  transformModel: "homography",
   setAlignmentMethod: (alignmentMethod) => set({ alignmentMethod }),
   setCurrentStep: (currentStep) => set({ currentStep }),
   setLanguage: (language) => set({ language }),
