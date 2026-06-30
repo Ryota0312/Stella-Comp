@@ -179,9 +179,12 @@ export const uploadCopy = {
           ? `RAW現像に失敗したため埋め込みJPEGへ切り替えます: ${message}`
           : "RAW現像に失敗したため埋め込みJPEGへ切り替えます",
       extractingEmbeddedJpeg: "埋め込みJPEGを抽出中",
-      cr3PreviewExtracted: (bytes: string) => `CR3プレビューを抽出しました（${bytes}）`,
-      cr3PreviewUnavailable: (message?: string) =>
-        message ? `CR3プレビューを利用できません: ${message}` : "CR3プレビューを利用できません",
+      embeddedJpegPreviewExtracted: (bytes: string) =>
+        `埋め込みJPEGプレビューを抽出しました（${bytes}）`,
+      embeddedJpegPreviewUnavailable: (message?: string) =>
+        message
+          ? `埋め込みJPEGプレビューを利用できません: ${message}`
+          : "埋め込みJPEGプレビューを利用できません",
       browserDecodeUnavailable: "ブラウザでプレビューをデコードできません",
       generatingJpegPreview: "JPEGプレビューを生成中",
       previewReady: "プレビュー準備完了",
@@ -398,9 +401,9 @@ export const uploadCopy = {
           ? `RAW develop failed; falling back to embedded JPEG: ${message}`
           : "RAW develop failed; falling back to embedded JPEG",
       extractingEmbeddedJpeg: "Extracting embedded JPEG",
-      cr3PreviewExtracted: (bytes: string) => `CR3 preview extracted (${bytes})`,
-      cr3PreviewUnavailable: (message?: string) =>
-        message ? `CR3 preview unavailable: ${message}` : "CR3 preview unavailable",
+      embeddedJpegPreviewExtracted: (bytes: string) => `Embedded JPEG preview extracted (${bytes})`,
+      embeddedJpegPreviewUnavailable: (message?: string) =>
+        message ? `Embedded JPEG preview unavailable: ${message}` : "Embedded JPEG preview unavailable",
       browserDecodeUnavailable: "Browser preview decode is unavailable",
       generatingJpegPreview: "Generating JPEG preview",
       previewReady: "Preview ready",
@@ -481,10 +484,10 @@ export function queueNoteText(note: QueueNote, language: Language) {
       return copy.rawPreviewFallbackToEmbeddedJpeg(note.detail);
     case "extractingEmbeddedJpeg":
       return copy.extractingEmbeddedJpeg;
-    case "cr3PreviewExtracted":
-      return copy.cr3PreviewExtracted(note.bytes);
-    case "cr3PreviewUnavailable":
-      return copy.cr3PreviewUnavailable(note.detail);
+    case "embeddedJpegPreviewExtracted":
+      return copy.embeddedJpegPreviewExtracted(note.bytes);
+    case "embeddedJpegPreviewUnavailable":
+      return copy.embeddedJpegPreviewUnavailable(note.detail);
     case "browserDecodeUnavailable":
       return copy.browserDecodeUnavailable;
     case "generatingJpegPreview":

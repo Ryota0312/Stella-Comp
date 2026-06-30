@@ -65,6 +65,8 @@ workerScope.addEventListener("message", (event: MessageEvent<ExtractRequest>) =>
 });
 
 function findLargestJpeg(bytes: Uint8Array) {
+  // Best-effort fallback for RAW files: scan for embedded JPEG byte ranges
+  // without parsing camera-specific RAW container metadata.
   let best: { start: number; end: number } | null = null;
   let cursor = 0;
 

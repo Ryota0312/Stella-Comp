@@ -15,8 +15,8 @@ export type QueueNote =
   | { code: "rawPreviewUnavailable"; detail?: string }
   | { code: "rawPreviewFallbackToEmbeddedJpeg"; detail?: string }
   | { code: "extractingEmbeddedJpeg" }
-  | { code: "cr3PreviewExtracted"; bytes: string }
-  | { code: "cr3PreviewUnavailable"; detail?: string }
+  | { code: "embeddedJpegPreviewExtracted"; bytes: string }
+  | { code: "embeddedJpegPreviewUnavailable"; detail?: string }
   | { code: "browserDecodeUnavailable" }
   | { code: "generatingJpegPreview" }
   | { code: "previewReady" }

@@ -82,7 +82,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
 
           updateItem(item.id, {
             status: "ready",
-            note: { code: "cr3PreviewExtracted", bytes: formatBytes(embeddedPreview.extractedBytes) },
+            note: { code: "embeddedJpegPreviewExtracted", bytes: formatBytes(embeddedPreview.extractedBytes) },
             previewBlob: preview.blob,
             previewSize: preview.blob.size,
             previewUrl,
@@ -93,7 +93,7 @@ export function useUploadQueue({ onQueueChanged, onQueueCleared }: UseUploadQueu
           updateItem(item.id, {
             status: "raw-pending",
             note: {
-              code: item.extension === "cr3" ? "cr3PreviewUnavailable" : "rawPreviewUnavailable",
+              code: "embeddedJpegPreviewUnavailable",
               detail: error instanceof Error ? error.message : undefined,
             },
           });
