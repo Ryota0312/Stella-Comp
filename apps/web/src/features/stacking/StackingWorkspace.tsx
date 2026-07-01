@@ -1,5 +1,6 @@
 "use client";
 
+import { BetaNoticeDialog } from "./components/BetaNoticeDialog";
 import { HeroMetrics } from "./components/HeroMetrics";
 import { JobStatusPanel } from "./components/JobStatusPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
@@ -25,6 +26,7 @@ function StackingWorkspaceLayout() {
 
   return (
     <main className={styles["page-shell"]}>
+      <BetaNoticeDialog />
       <HeroMetrics />
 
       <section

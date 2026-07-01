@@ -32,6 +32,13 @@ export const uploadCopy = {
     navigation: {
       leaveConfirm: "選択済みの画像と処理途中の内容が失われます。ページを離れますか？",
     },
+    betaNotice: {
+      title: "Stella Comp はベータ版です",
+      body:
+        "現在の Stella Comp は開発中のベータ版です。機能、処理結果、制限、画面構成は今後予告なく変更される可能性があります。",
+      suppressLabel: "今後表示しない",
+      confirm: "確認して進む",
+    },
     upload: {
       kicker: "取り込み",
       title: "アップロードキュー",
@@ -252,6 +259,13 @@ export const uploadCopy = {
     },
     navigation: {
       leaveConfirm: "Selected images and in-progress work will be lost. Leave this page?",
+    },
+    betaNotice: {
+      title: "Stella Comp is in beta",
+      body:
+        "Stella Comp is currently a beta product under active development. Features, processing results, limits, and the interface may change without prior notice.",
+      suppressLabel: "Do not show again",
+      confirm: "Continue",
     },
     upload: {
       kicker: "Ingest",
