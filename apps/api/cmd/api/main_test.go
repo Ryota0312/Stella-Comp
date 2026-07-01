@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,62 @@ type fakeProcessor struct {
 	request          *stellacompv1.AlignAndAverageRequest
 	transformRequest *stellacompv1.EstimateTransformsRequest
 	err              error
+}
+
+func TestMain(m *testing.M) {
+	_ = os.Unsetenv("STELLA_COMP_QUEUE_URL")
+	_ = os.Unsetenv("STELLA_COMP_ALIGNMENT_CONCURRENCY")
+	_ = os.Unsetenv("STELLA_COMP_COMPOSITE_CONCURRENCY")
+	os.Exit(m.Run())
+}
+
+type blockingTransformProcessor struct {
+	started chan struct{}
+	release chan struct{}
+	mu      sync.Mutex
+	calls   int
+}
+
+func newBlockingTransformProcessor() *blockingTransformProcessor {
+	return &blockingTransformProcessor{
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+}
+
+func (processor *blockingTransformProcessor) AlignAndAverage(ctx context.Context, request *stellacompv1.AlignAndAverageRequest) (*stellacompv1.AlignAndAverageResponse, error) {
+	return &stellacompv1.AlignAndAverageResponse{OutputPath: request.GetOutputPath()}, nil
+}
+
+func (processor *blockingTransformProcessor) EstimateTransforms(ctx context.Context, request *stellacompv1.EstimateTransformsRequest) (*stellacompv1.EstimateTransformsResponse, error) {
+	processor.mu.Lock()
+	processor.calls++
+	processor.mu.Unlock()
+	processor.started <- struct{}{}
+
+	select {
+	case <-processor.release:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	transforms := make([]*stellacompv1.ImageTransform, 0, len(request.GetImages()))
+	for index := range request.GetImages() {
+		transforms = append(transforms, &stellacompv1.ImageTransform{
+			ImageIndex:     uint32(index),
+			Affine:         []float64{1, 0, 0, 0, 1, 0},
+			Homography:     []float64{1, 0, 0, 0, 1, 0, 0, 0, 1},
+			TransformModel: request.GetTransformModel(),
+			Estimated:      true,
+		})
+	}
+	return &stellacompv1.EstimateTransformsResponse{Transforms: transforms}, nil
+}
+
+func (processor *blockingTransformProcessor) callCount() int {
+	processor.mu.Lock()
+	defer processor.mu.Unlock()
+	return processor.calls
 }
 
 func (processor *fakeProcessor) AlignAndAverage(ctx context.Context, request *stellacompv1.AlignAndAverageRequest) (*stellacompv1.AlignAndAverageResponse, error) {
@@ -322,6 +379,61 @@ func TestPreviewAlignmentsReturnsTransforms(t *testing.T) {
 	}
 }
 
+func TestPreviewAlignmentConcurrencyKeepsSecondJobQueued(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("STELLA_COMP_QUEUE_URL", "")
+	t.Setenv("STELLA_COMP_ALIGNMENT_CONCURRENCY", "1")
+	dataDir := t.TempDir()
+	sessionDir := filepath.Join(dataDir, "uploads", "previews", "session-1")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sessionDir, "0001-frame.jpg"), []byte("preview"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	processor := newBlockingTransformProcessor()
+	router := newRouterWithProcessor(dataDir, processor)
+
+	first := createAlignmentJob(t, router, "session-1")
+	second := createAlignmentJob(t, router, "session-1")
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("expected first alignment job to start")
+	}
+
+	select {
+	case <-processor.started:
+		t.Fatal("second alignment job started before first was released")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if processor.callCount() != 1 {
+		t.Fatalf("processor calls = %d", processor.callCount())
+	}
+
+	queued := fetchAlignmentJob(t, router, second.AlignmentJobID)
+	if queued.Status != "queued" {
+		t.Fatalf("second job status = %q", queued.Status)
+	}
+
+	processor.release <- struct{}{}
+	if waitForAlignmentJobStatus(t, router, first.AlignmentJobID, "completed").Status != "completed" {
+		t.Fatal("expected first job completed")
+	}
+
+	select {
+	case <-processor.started:
+	case <-time.After(time.Second):
+		t.Fatal("expected second alignment job to start")
+	}
+	processor.release <- struct{}{}
+	if waitForAlignmentJobStatus(t, router, second.AlignmentJobID, "completed").Status != "completed" {
+		t.Fatal("expected second job completed")
+	}
+}
+
 func TestPreviewAlignmentMarksWorkerErrorAsFailed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	dataDir := t.TempDir()
@@ -528,6 +640,41 @@ func waitForAlignmentJobStatus(t *testing.T, router http.Handler, jobID string, 
 
 	t.Fatalf("preview alignment job %s did not reach status %s", jobID, status)
 	return usecase.AlignmentJobResponse{}
+}
+
+func createAlignmentJob(t *testing.T, router http.Handler, sessionID string) usecase.AlignmentJobResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, "/api/preview-alignments", strings.NewReader(`{"sessionId":"`+sessionID+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var created usecase.AlignmentJobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	return created
+}
+
+func fetchAlignmentJob(t *testing.T, router http.Handler, jobID string) usecase.AlignmentJobResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodGet, "/api/preview-alignments/"+jobID, nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status response = %d, body = %s", response.Code, response.Body.String())
+	}
+
+	var job usecase.AlignmentJobResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &job); err != nil {
+		t.Fatal(err)
+	}
+	return job
 }
 
 func newTestPreviewJobs(t *testing.T, dataDir string) *usecase.PreviewJobs {

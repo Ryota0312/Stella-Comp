@@ -1,6 +1,26 @@
 package usecase
 
-import "sync"
+import (
+	"encoding/json"
+	"fmt"
+	"sync"
+)
+
+type CompositeJobStateStore interface {
+	Put(job *JobResponse) error
+	Get(jobID string) (*JobResponse, bool)
+	List() []*JobResponse
+	Update(jobID string, update func(job *JobResponse)) error
+	Delete(jobID string) error
+}
+
+type AlignmentJobStateStore interface {
+	Put(job *AlignmentJobResponse) error
+	Get(jobID string) (*AlignmentJobResponse, bool)
+	List() []*AlignmentJobResponse
+	Update(jobID string, update func(job *AlignmentJobResponse)) error
+	Delete(jobID string) error
+}
 
 type JobStore struct {
 	mu   sync.RWMutex
@@ -20,10 +40,11 @@ func NewAlignmentJobStore() *AlignmentJobStore {
 	return &AlignmentJobStore{jobs: map[string]*AlignmentJobResponse{}}
 }
 
-func (store *JobStore) Put(job *JobResponse) {
+func (store *JobStore) Put(job *JobResponse) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	store.jobs[job.JobID] = cloneJob(job)
+	return nil
 }
 
 func (store *JobStore) Get(jobID string) (*JobResponse, bool) {
@@ -48,27 +69,30 @@ func (store *JobStore) List() []*JobResponse {
 	return jobs
 }
 
-func (store *JobStore) Update(jobID string, update func(job *JobResponse)) {
+func (store *JobStore) Update(jobID string, update func(job *JobResponse)) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	job, ok := store.jobs[jobID]
 	if !ok {
-		return
+		return nil
 	}
 
 	update(job)
+	return nil
 }
 
-func (store *JobStore) Delete(jobID string) {
+func (store *JobStore) Delete(jobID string) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	delete(store.jobs, jobID)
+	return nil
 }
 
-func (store *AlignmentJobStore) Put(job *AlignmentJobResponse) {
+func (store *AlignmentJobStore) Put(job *AlignmentJobResponse) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	store.jobs[job.AlignmentJobID] = cloneAlignmentJob(job)
+	return nil
 }
 
 func (store *AlignmentJobStore) Get(jobID string) (*AlignmentJobResponse, bool) {
@@ -93,21 +117,23 @@ func (store *AlignmentJobStore) List() []*AlignmentJobResponse {
 	return jobs
 }
 
-func (store *AlignmentJobStore) Update(jobID string, update func(job *AlignmentJobResponse)) {
+func (store *AlignmentJobStore) Update(jobID string, update func(job *AlignmentJobResponse)) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	job, ok := store.jobs[jobID]
 	if !ok {
-		return
+		return nil
 	}
 
 	update(job)
+	return nil
 }
 
-func (store *AlignmentJobStore) Delete(jobID string) {
+func (store *AlignmentJobStore) Delete(jobID string) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	delete(store.jobs, jobID)
+	return nil
 }
 
 func cloneJob(job *JobResponse) *JobResponse {
@@ -126,4 +152,12 @@ func cloneAlignmentJob(job *AlignmentJobResponse) *AlignmentJobResponse {
 	}
 	cloned.Warnings = append([]ProcessingWarning(nil), job.Warnings...)
 	return &cloned
+}
+
+func marshalJobPayload(job any) (string, error) {
+	payload, err := json.Marshal(job)
+	if err != nil {
+		return "", fmt.Errorf("marshal job state: %w", err)
+	}
+	return string(payload), nil
 }

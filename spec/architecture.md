@@ -48,12 +48,12 @@ stella-comp/
 Go API は `cmd/api` を起動と依存注入だけに絞り、実装は `internal/` 配下のレイヤーに分ける。
 
 - `internal/transport/http`: gin に依存するプレゼンテーション層。HTTP request/response、status code、multipart/JSON binding、CORS を扱う。
-- `internal/usecase`: アプリケーションのユースケース層。preview upload セッションからの合成ジョブ作成、位置合わせ推定ジョブ作成、ジョブ状態遷移、Protocol Buffers 型への変換を扱う。ジョブ状態は現時点ではプロセス内メモリ store を使う。
+- `internal/usecase`: アプリケーションのユースケース層。preview upload セッションからの合成ジョブ作成、位置合わせ推定ジョブ作成、ジョブ状態遷移、待機 queue、Protocol Buffers 型への変換を扱う。Compose / deploy 環境では Valkey store / Streams queue、ローカル開発ではプロセス内 store / queue を使う。
 - `internal/service`: HTTP や gRPC に依存しないサービス層。preview file の保存、セッションディレクトリ内パス検証、ファイル名・セッションIDの正規化などを扱う。
 - `internal/processor`: Rust worker への gRPC adapter。`usecase.Processor` interface の実装として外部画像処理境界を担当する。
 - `internal/gen`: `proto/` から生成した Go code。Go/Rust 間の契約型として扱い、手編集しない。
 
-HTTP 層から直接 gRPC client やファイルシステム詳細を呼ばず、`usecase` と `service` を経由する。将来 Valkey にジョブ状態を移す場合は、`internal/usecase` の store 実装を差し替える。
+HTTP 層から直接 gRPC client やファイルシステム詳細を呼ばず、`usecase` と `service` を経由する。ジョブ状態と queue は `internal/usecase` の interface で抽象化し、Valkey 実装とローカル用メモリ実装を差し替える。
 
 ### crates/stellacomp
 
@@ -162,7 +162,7 @@ RAW プレビュー抽出の中長期方針:
 - `GET /api/jobs/:jobID/result`
   - 完了済みジョブの成果物を返す。
 
-現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱い、Blob URL で表示・ダウンロードするため、通常フローではサーバーに保存しない。結果確認 UI は、合成 PNG と選択された基準フレームの preview JPEG の切替/左右比較、およびカーソル位置の基準/合成ピクセル等倍クロップ表示をクライアント側だけで行う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認して本画像合成ステップへ進んだ時点で開始し、処理中は右ペインの画像領域オーバーレイに状態と進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。本画像合成ステップ内の実行ボタンは再実行および将来のオプション変更後の実行用として残す。`POST /api/jobs` は引き続き Go API がジョブをプロセス内メモリで管理し、Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。アップロード済み preview JPEG と fallback 結果は標準 24 時間 TTL の cleanup 対象で、TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更する。ジョブ永続化は後続で拡張する。
+現在の Web UI は preview JPEG の準備完了後に自動で `POST /api/preview-alignments` で変換行列推定ジョブを作成し、`GET /api/preview-alignments/:alignmentJobID` を polling する。完了後は Rust worker の `EstimateTransforms` が返した変換行列でブラウザ側 preview 合成を行う。preview 合成は確認・共有用の PNG として扱い、Blob URL で表示・ダウンロードするため、通常フローではサーバーに保存しない。結果確認 UI は、合成 PNG と選択された基準フレームの preview JPEG の切替/左右比較、およびカーソル位置の基準/合成ピクセル等倍クロップ表示をクライアント側だけで行う。RAW/TIFF 現像と元画像合成は preview 結果をユーザーが確認して本画像合成ステップへ進んだ時点で開始し、処理中は右ペインの画像領域オーバーレイに状態と進捗を表示する。本処理成果物は Lightroom などで後処理する前提の TIFF とし、画面確認用には別途 PNG preview を生成する。本画像合成ステップ内の実行ボタンは再実行および将来のオプション変更後の実行用として残す。`POST /api/jobs` は Rust worker の `AlignAndAverage` で `.data/jobs/<job-id>/result.jpg` を生成する比較・フォールバック用エンドポイントとして残す。ジョブ状態と待機 queue は Compose / deploy 環境では Valkey、ローカル開発ではプロセス内実装で管理する。アップロード済み preview JPEG と fallback 結果は標準 24 時間 TTL の cleanup 対象で、TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更する。
 
 左ペインはフェーズごとの最小操作に絞る。アップロードフェーズではドロップエリア、基準フレーム、位置合わせ方式、変換モデル、選択済みフレーム一覧を表示する。プレビュー合成フェーズでは位置合わせ方式、変換モデル、フレーム数、書き出し形式選択を表示する。本画像合成フェーズでは位置合わせ方式、変換モデル、フレーム数、書き出し形式を読み取り表示する。次フェーズへ進む CTA と戻る操作は、画像上に重ねず、左ペイン下部の固定アクション領域に置く。
 
@@ -229,7 +229,7 @@ message ImageSize {
 
 Docker Compose では `https-portal`、`nginx`、`web`、`api`、`worker`、`valkey` を起動する。`https-portal` が TLS 終端を担当し、`nginx` が `/` と `/api/` を内部サービスへ振り分ける。Go API と Rust worker は同じ `stella-data` volume を `/data` に mount し、API が保存した preview JPEG や server-side result を worker から同じ絶対パスで参照できるようにする。
 
-ジョブキュー基盤は Redis 互換の Valkey を標準候補にする。Redis 互換 ecosystem を使えるため Go API から扱いやすく、単一 VPS の Compose 運用から managed Redis 互換サービスへ移しやすい。MVP の現在実装は Go API プロセス内メモリで `queued` / `running` / `completed` / `failed` を管理しているため、Compose の Valkey は次段階の queue backend として同居させる。API 複数 replica 化、再起動耐性、retry、timeout、cancel を入れる段階では、queue だけでなく polling 用 job state も Valkey へ移す。
+ジョブキュー基盤は Redis 互換の Valkey を標準にする。Redis 互換 ecosystem を使えるため Go API から扱いやすく、単一 VPS の Compose 運用から managed Redis 互換サービスへ移しやすい。Compose / deploy 環境では Valkey hash を polling 用 job state、Valkey Streams consumer group を pending queue として使う。API worker loop 数で Rust worker 呼び出しの並列数を制限し、標準値は preview alignment / fallback composite ともに 1 とする。Pub/Sub は job dispatch には使わず、必要になった場合も状態変更通知の補助に留める。
 
 ## MVP の実装順
 

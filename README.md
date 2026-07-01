@@ -90,7 +90,7 @@ https://localhost/api/  Go API
 
 HTTP 側は `http://localhost` で受け、HTTPS Portal が HTTPS へリダイレクトします。Compose 環境では Go API と Rust worker が同じ named volume を `/data` に mount します。Go API は preview JPEG を `/data/uploads/previews/` に保存し、同じ絶対パスを worker に渡します。アップロード済み preview JPEG と `/api/jobs` の fallback 合成結果は、標準で 24 時間後に Go API の cleanup worker が削除します。通常フローのブラウザ側 preview 合成 PNG は Blob URL として扱うため、サーバーには保存されません。
 
-Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend 候補として同時に起動します。現時点の API 実装はまだプロセス内メモリでジョブ状態を管理し、goroutine で worker を呼び出します。API の複数 replica 化、再起動耐性、retry、cancel、timeout が必要になる段階で、job store と queue をセットで Valkey に移します。詳細は `spec/deployment.md` を参照してください。
+Valkey は Redis 互換のジョブキュー・ジョブ状態管理 backend として同時に起動します。Compose / deploy 環境では `STELLA_COMP_QUEUE_URL=redis://valkey:6379/0` を使い、Go API は preview alignment と fallback 合成ジョブの状態を Valkey hash に保存し、Valkey Streams consumer group で待機 queue を管理します。Rust worker 呼び出しの並列数は標準 1 で、`STELLA_COMP_ALIGNMENT_CONCURRENCY` / `STELLA_COMP_COMPOSITE_CONCURRENCY` で変更できます。API 起動時の Valkey 接続待ちは `STELLA_COMP_QUEUE_CONNECT_TIMEOUT` で変更できます。詳細は `spec/deployment.md` を参照してください。
 
 この環境では Docker daemon が Docker API 1.44 以上を要求するため、Compose 起動時は `DOCKER_API_VERSION=1.52` を指定します。これを指定しないと、IntelliJ の起動環境に古い `DOCKER_API_VERSION` が残っている場合に `client version 1.42 is too old` が出ることがあります。
 
@@ -207,9 +207,9 @@ GET  /api/jobs/:jobID/result
 
 `POST /api/preview-uploads` は preview JPEG を `multipart/form-data` の `previews` フィールドで受け取り、`.data/uploads/previews/<session-id>/` に保存します。
 
-`POST /api/preview-alignments` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `EstimateTransforms` へ渡す非同期ジョブを作成します。レスポンスは `202 Accepted` と `alignmentJobId` です。`GET /api/preview-alignments/:alignmentJobID` は `queued` / `running` / `completed` / `failed` の状態を返し、完了時は各画像を基準preview座標系へ写す 2x3 アフィン変換行列を返します。Web UI はこの行列を使い、ブラウザの Canvas 上で preview JPEG をアフィン変換して加算平均合成し、PNG を生成します。
+`POST /api/preview-alignments` は preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、`.data/uploads/previews/<session-id>/` の preview JPEG を Rust worker の `EstimateTransforms` へ渡す非同期ジョブを作成します。レスポンスは `202 Accepted` と `alignmentJobId` です。`GET /api/preview-alignments/:alignmentJobID` は `queued` / `running` / `completed` / `failed` の状態を返し、完了時は各画像を基準preview座標系へ写す 2x3 アフィン変換行列または 3x3 ホモグラフィ行列を返します。Web UI はこの行列を使い、ブラウザの Canvas 上で preview JPEG を変換して加算平均合成し、PNG を生成します。
 
-`POST /api/jobs` は従来のサーバー合成用エンドポイントとして残しています。preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、Rust worker の `AlignAndAverage` で preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、その絶対パスを worker へ渡します。ジョブ状態は Go API プロセス内のメモリで管理します。
+`POST /api/jobs` は従来のサーバー合成用エンドポイントとして残しています。preview upload の `sessionId` と `baseImageIndex` を JSON で受け取り、Rust worker の `AlignAndAverage` で preview JPEG をそのまま位置合わせ・加算平均合成し、結果を `.data/jobs/<job-id>/result.jpg` に保存します。Go API は `STELLA_COMP_DATA_DIR` を起動時に絶対パスへ正規化し、その絶対パスを worker へ渡します。`STELLA_COMP_QUEUE_URL` が設定されている場合、ジョブ状態と待機 queue は Valkey で管理します。未設定のローカル開発ではプロセス内 store / queue を使います。
 
 アップロード済み preview JPEG と `.data/jobs/<job-id>/` の fallback 結果は、標準で 24 時間 TTL の cleanup 対象です。`queued` / `running` のジョブ、または TTL 内の完了済みジョブが参照する preview session は削除しません。通常フローのブラウザ側 preview 合成 PNG はサーバーには保存されません。
 

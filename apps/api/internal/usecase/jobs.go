@@ -2,7 +2,9 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,8 +18,10 @@ type PreviewJobs struct {
 	DataDir       string
 	Storage       service.PreviewStorage
 	Processor     Processor
-	Jobs          *JobStore
-	AlignmentJobs *AlignmentJobStore
+	Jobs          CompositeJobStateStore
+	AlignmentJobs AlignmentJobStateStore
+	Queue         JobQueue
+	CleanupLocker CleanupLocker
 	NewID         IDGenerator
 }
 
@@ -28,12 +32,28 @@ type CleanupResult struct {
 }
 
 func NewPreviewJobs(dataDir string, storage service.PreviewStorage, processor Processor) *PreviewJobs {
+	queue := NewMemoryJobQueue()
 	return &PreviewJobs{
 		DataDir:       dataDir,
 		Storage:       storage,
 		Processor:     processor,
 		Jobs:          NewJobStore(),
 		AlignmentJobs: NewAlignmentJobStore(),
+		Queue:         queue,
+		CleanupLocker: &LocalCleanupLocker{},
+		NewID:         NewID,
+	}
+}
+
+func NewPreviewJobsWithRedis(dataDir string, storage service.PreviewStorage, processor Processor, backend *RedisBackend) *PreviewJobs {
+	return &PreviewJobs{
+		DataDir:       dataDir,
+		Storage:       storage,
+		Processor:     processor,
+		Jobs:          backend,
+		AlignmentJobs: RedisAlignmentJobStore{backend: backend},
+		Queue:         backend,
+		CleanupLocker: backend,
 		NewID:         NewID,
 	}
 }
@@ -57,9 +77,14 @@ func (usecase *PreviewJobs) CreateCompositeJob(ctx context.Context, request Crea
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
-	usecase.Jobs.Put(job)
+	if err := usecase.Jobs.Put(job); err != nil {
+		return nil, err
+	}
 
-	go usecase.runJob(ctx, jobID, previewPaths, outputPath, request.BaseImageIndex)
+	if err := usecase.Queue.EnqueueComposite(ctx, jobID); err != nil {
+		_ = usecase.Jobs.Delete(jobID)
+		return nil, err
+	}
 
 	return job, nil
 }
@@ -87,7 +112,9 @@ func (usecase *PreviewJobs) CleanupExpired(now time.Time, ttl time.Duration) (Cl
 				return result, err
 			}
 		}
-		usecase.Jobs.Delete(job.JobID)
+		if err := usecase.Jobs.Delete(job.JobID); err != nil {
+			return result, err
+		}
 		result.DeletedCompositeJobs++
 	}
 
@@ -100,7 +127,9 @@ func (usecase *PreviewJobs) CleanupExpired(now time.Time, ttl time.Duration) (Cl
 			protectedSessions[job.SessionID] = struct{}{}
 			continue
 		}
-		usecase.AlignmentJobs.Delete(job.AlignmentJobID)
+		if err := usecase.AlignmentJobs.Delete(job.AlignmentJobID); err != nil {
+			return result, err
+		}
 		result.DeletedAlignmentJobs++
 	}
 
@@ -145,11 +174,85 @@ func (usecase *PreviewJobs) CreateAlignmentJob(ctx context.Context, request Esti
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}
-	usecase.AlignmentJobs.Put(alignmentJob)
+	if err := usecase.AlignmentJobs.Put(alignmentJob); err != nil {
+		return nil, err
+	}
 
-	go usecase.runAlignmentJob(ctx, alignmentJobID, PreviewInputImages(previewPaths), request.BaseImageIndex, alignmentMethod, transformModel)
+	if err := usecase.Queue.EnqueueAlignment(ctx, alignmentJobID); err != nil {
+		_ = usecase.AlignmentJobs.Delete(alignmentJobID)
+		return nil, err
+	}
 
 	return alignmentJob, nil
+}
+
+func (usecase *PreviewJobs) StartWorkers(ctx context.Context, compositeConcurrency int, alignmentConcurrency int) {
+	if compositeConcurrency < 0 {
+		compositeConcurrency = 0
+	}
+	if alignmentConcurrency < 0 {
+		alignmentConcurrency = 0
+	}
+
+	for index := 0; index < compositeConcurrency; index++ {
+		go usecase.runCompositeWorker(ctx)
+	}
+	for index := 0; index < alignmentConcurrency; index++ {
+		go usecase.runAlignmentWorker(ctx)
+	}
+}
+
+func (usecase *PreviewJobs) runCompositeWorker(ctx context.Context) {
+	for {
+		queuedJob, err := usecase.Queue.ClaimComposite(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
+			if !errors.Is(err, ErrNoQueuedJob) {
+				log.Printf("claim composite job failed: %v", err)
+			}
+			continue
+		}
+
+		job, ok := usecase.Jobs.Get(queuedJob.ID)
+		if ok {
+			usecase.runJob(ctx, job.JobID, job.PreviewPaths, job.OutputPath, job.BaseImageIndex)
+		}
+		if err := queuedJob.Ack(ctx); err != nil {
+			log.Printf("ack composite job %s failed: %v", queuedJob.ID, err)
+		}
+	}
+}
+
+func (usecase *PreviewJobs) runAlignmentWorker(ctx context.Context) {
+	for {
+		queuedJob, err := usecase.Queue.ClaimAlignment(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
+			if !errors.Is(err, ErrNoQueuedJob) {
+				log.Printf("claim alignment job failed: %v", err)
+			}
+			continue
+		}
+
+		job, ok := usecase.AlignmentJobs.Get(queuedJob.ID)
+		if ok {
+			usecase.runAlignmentJob(
+				ctx,
+				job.AlignmentJobID,
+				PreviewInputImages(job.PreviewPaths),
+				job.BaseImageIndex,
+				job.AlignmentMethod,
+				job.TransformModel,
+			)
+		}
+		if err := queuedJob.Ack(ctx); err != nil {
+			log.Printf("ack alignment job %s failed: %v", queuedJob.ID, err)
+		}
+	}
 }
 
 func (usecase *PreviewJobs) deleteCompositeJobFiles(outputPath string) error {
@@ -218,10 +321,13 @@ func isTerminalStatus(status string) bool {
 }
 
 func (usecase *PreviewJobs) runJob(ctx context.Context, jobID string, previewPaths []string, outputPath string, baseImageIndex int) {
-	usecase.Jobs.Update(jobID, func(job *JobResponse) {
+	if err := usecase.Jobs.Update(jobID, func(job *JobResponse) {
 		job.Status = "running"
 		job.UpdatedAt = time.Now().UTC()
-	})
+	}); err != nil {
+		log.Printf("update composite job %s failed: %v", jobID, err)
+		return
+	}
 
 	response, err := usecase.Processor.AlignAndAverage(ctx, &stellacompv1.AlignAndAverageRequest{
 		Images:         PreviewInputImages(previewPaths),
@@ -229,27 +335,35 @@ func (usecase *PreviewJobs) runJob(ctx context.Context, jobID string, previewPat
 		BaseImageIndex: int32(baseImageIndex),
 	})
 	if err != nil {
-		usecase.Jobs.Update(jobID, func(job *JobResponse) {
+		processorErr := err
+		if err := usecase.Jobs.Update(jobID, func(job *JobResponse) {
 			job.Status = "failed"
-			job.Error = err.Error()
+			job.Error = processorErr.Error()
 			job.UpdatedAt = time.Now().UTC()
-		})
+		}); err != nil {
+			log.Printf("update failed composite job %s failed: %v", jobID, err)
+		}
 		return
 	}
 
-	usecase.Jobs.Update(jobID, func(job *JobResponse) {
+	if err := usecase.Jobs.Update(jobID, func(job *JobResponse) {
 		job.Status = "completed"
 		job.OutputPath = response.GetOutputPath()
 		job.Warnings = ProcessingWarningsFromProto(response.GetWarnings())
 		job.UpdatedAt = time.Now().UTC()
-	})
+	}); err != nil {
+		log.Printf("update completed composite job %s failed: %v", jobID, err)
+	}
 }
 
 func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, images []*stellacompv1.InputImage, baseImageIndex int, alignmentMethod string, transformModel string) {
-	usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
+	if err := usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
 		job.Status = "running"
 		job.UpdatedAt = time.Now().UTC()
-	})
+	}); err != nil {
+		log.Printf("update alignment job %s failed: %v", jobID, err)
+		return
+	}
 
 	response, err := usecase.Processor.EstimateTransforms(ctx, &stellacompv1.EstimateTransformsRequest{
 		Images:          images,
@@ -258,20 +372,25 @@ func (usecase *PreviewJobs) runAlignmentJob(ctx context.Context, jobID string, i
 		TransformModel:  transformModel,
 	})
 	if err != nil {
-		usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
+		processorErr := err
+		if err := usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
 			job.Status = "failed"
-			job.Error = err.Error()
+			job.Error = processorErr.Error()
 			job.UpdatedAt = time.Now().UTC()
-		})
+		}); err != nil {
+			log.Printf("update failed alignment job %s failed: %v", jobID, err)
+		}
 		return
 	}
 
-	usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
+	if err := usecase.AlignmentJobs.Update(jobID, func(job *AlignmentJobResponse) {
 		job.Status = "completed"
 		job.Transforms = ImageTransformsFromProto(response.GetTransforms())
 		job.Warnings = ProcessingWarningsFromProto(response.GetWarnings())
 		job.UpdatedAt = time.Now().UTC()
-	})
+	}); err != nil {
+		log.Printf("update completed alignment job %s failed: %v", jobID, err)
+	}
 }
 
 func NormalizeAlignmentMethod(rawMethod string) string {

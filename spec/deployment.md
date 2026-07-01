@@ -59,29 +59,29 @@ Redis 互換の汎用キュー基盤としては Valkey を標準候補にする
 - OSS として継続利用しやすく、VPS の単体運用から managed Redis 互換サービスへの移行もしやすい。
 - 画像処理ジョブのような「少数だが重い」処理では、最初から専用 queue system を入れるより運用面が軽い。
 
-MVP の現在実装は Go API プロセス内メモリでジョブ状態を管理し、goroutine で Rust worker の同期 gRPC を呼ぶ。これは単一 API プロセスでは動くが、API の複数 replica 化、再起動耐性、ジョブの retry / timeout / cancel を考えると不足する。
+Go API は `STELLA_COMP_QUEUE_URL` が設定されている場合、Valkey を job store と queue の正として使う。Compose / deploy 環境では `redis://valkey:6379/0` を指定する。
 
-次の段階では、queue だけでなく job store も合わせて Valkey へ移す。
-
-- job 作成時に job state を Valkey hash などへ保存する。
-- pending queue は Valkey list または stream で管理する。
-- API replica のうち worker loop を持つプロセスが queue から dequeue し、Rust worker gRPC を呼ぶ。
+- job 作成時に job state を Valkey hash に保存する。
+- pending queue は Valkey Streams と consumer group で管理する。
+- API プロセス内 worker loop が `XREADGROUP` / `XAUTOCLAIM` で dequeue し、Rust worker gRPC を呼ぶ。
 - status polling は Go API のメモリではなく Valkey の job state を読む。
-- running job には lease / visibility timeout を持たせ、API プロセス終了時に再試行できるようにする。
+- 並列数制限は worker loop 数で制御し、`STELLA_COMP_ALIGNMENT_CONCURRENCY` / `STELLA_COMP_COMPOSITE_CONCURRENCY` で変更する。標準値はどちらも 1。
+- API 起動時の Valkey 接続待ちは `STELLA_COMP_QUEUE_CONNECT_TIMEOUT` で変更する。標準値は 30 秒。
+- Pub/Sub は job dispatch には使わない。必要になった場合も状態変更通知の補助に留め、通常 UI は polling を継続する。
 - result file は当面 `/data/jobs/<job-id>/` に置き、将来 S3 互換 object storage URI へ置き換えられるようにする。
 
-この移行を行うまでは、Compose の Valkey は将来キュー基盤の同居コンテナとして立ち上げるが、既存ジョブ実行 path は従来どおりプロセス内メモリを使う。
+`STELLA_COMP_QUEUE_URL` が未設定のローカル開発では、同じ interface のプロセス内メモリ store / queue を使う。この場合も bounded queue と worker loop により並列数制限は維持するが、API 再起動で job state は失われる。
 
 ## スケール方針
 
 初期 VPS 運用では 1 compose project に web / api / worker / valkey / nginx を同居させる。画像処理の CPU 負荷が増えた段階で、以下の順に分離する。
 
-個人利用の検証段階では、preview 変換行列推定の同時実行数制限や待機キューは必須としない。`POST /api/preview-alignments` は現状どおり Go API プロセス内の goroutine から Rust worker の同期 gRPC を呼ぶ実装でよい。ただし、本番提供前には VPS の実測負荷をもとに、以下を必ず見直す。
+初期 VPS 運用では preview 変換行列推定と fallback 合成の同時実行数を標準 1 に制限し、受付済み job は Streams 上で `queued` のまま待機させる。本番提供前には VPS の実測負荷をもとに、以下を必ず見直す。
 
 - VPS の CPU / memory / swap / disk I/O 使用量と preview JPEG 枚数・解像度ごとの処理時間を測る。
-- Rust worker の同時実行数を制限する。小規模 VPS ではまず 1 並列を基準にし、余裕が確認できた場合だけ増やす。
-- 受付済み job を待機させる queue と、ユーザーへ待機状態を返す API / UI を用意する。
-- API 再起動や複数 replica 化に備え、job state と queue を Valkey へ移す。
+- Rust worker の同時実行数を実測に合わせて調整する。小規模 VPS では 1 並列を基準にし、余裕が確認できた場合だけ増やす。
+- 待機中 job の UI 表示を必要に応じて改善する。厳密な queue position は当面出さず、`queued` 表示を正とする。
+- API 複数 replica 化時の consumer 数、worker 接続先、pending job 回収間隔を調整する。
 - upload size、1 session あたりの画像枚数、処理 timeout、失敗時 retry / cancel の上限を定義する。
 
 1. `worker` replica を増やし、Go API 側の queue consumer 数と Rust worker 接続先を整理する。

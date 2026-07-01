@@ -39,8 +39,8 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - Docker Compose では HTTPS Portal、nginx、Next.js、Go API、Rust worker、Valkey を起動する。HTTPS Portal で TLS 終端し、nginx は内部リバースプロキシとして `/` と `/api/` を振り分ける。Compose 環境では API と worker が共有 volume `/data` を同じ絶対パスとして使う。
 - GitHub Actions は image publish と VPS deploy を分ける。`.github/workflows/publish-images.yml` は `main` / `master` への push で検証と GHCR image publish を行う。PR merge も base branch への push として扱う。`v1.0.0` のような正式 SemVer tag では同じ tag の GHCR image を publish して production deploy し、`v1.0.0-rc.1` のような SemVer prerelease tag では staging deploy する。`.github/workflows/deploy.yml` は reusable workflow と手動 rollback 用 `workflow_dispatch` を提供し、VPS では `compose.deploy.yml` を使い、Actions が push した GHCR image を pull して起動する。
 - VPS の公開制限は nginx Basic 認証で行い、`.github/workflows/deploy.yml` の `access_mode` で `auto` / `public` / `private` を切り替える。`auto` は production を public、staging を private として扱う。
-- Redis 互換キュー基盤は Valkey を標準候補にする。現時点のジョブ管理は Go API プロセス内メモリだが、API 複数 replica 化、再起動耐性、retry/cancel/timeout を入れる段階で job store と queue を Valkey へ移す。
-- 初期 VPS 運用は個人利用の検証を目的とし、preview 変換行列推定の並列数制限や待機キューは本番提供前の課題として扱う。本番提供前には VPS 実測に基づく resource sizing、Rust worker 同時実行数制限、待機 queue、upload size / 画像枚数 / timeout / retry / cancel 上限を設計する。詳細は `spec/deployment.md` を参照する。
+- Redis 互換キュー基盤は Valkey を標準とする。`STELLA_COMP_QUEUE_URL` が設定されている場合、Go API は Valkey hash に job state を保存し、Valkey Streams consumer group で preview 変換行列推定と fallback 合成の待機 queue を管理する。未設定のローカル開発では同じ interface のプロセス内 store / queue に fallback する。
+- 初期 VPS 運用では preview 変換行列推定と fallback 合成の並列数を標準 1 に制限し、受付済み job は `queued` として待機させる。並列数は `STELLA_COMP_ALIGNMENT_CONCURRENCY` / `STELLA_COMP_COMPOSITE_CONCURRENCY` で変更する。本番提供前には VPS 実測に基づく resource sizing、Rust worker 同時実行数、upload size / 画像枚数 / timeout / retry / cancel 上限を設計する。詳細は `spec/deployment.md` を参照する。
 - 既存実装 [`Ryota0312/hoshikasane`](https://github.com/Ryota0312/hoshikasane) の `stellacomp` Rust ライブラリを移植候補として扱う。
 - ローカルに `hoshikasane` の clone があり未コミット変更がある場合は、ユーザー変更として扱い、勝手に巻き戻さない。
 - 実装開始時は、まず最小の縦断スライスを作る。例: ブラウザでのRAW/preview生成、preview upload、Rust worker による位置合わせ推定、ブラウザ側合成。
@@ -58,7 +58,7 @@ mise でツールバージョンを管理する。現在の固定バージョン
 - プレビュー合成後の画面では、本画像合成の書き出し形式を TIFF / PNG / JPEG から選択できる。TIFF は 16bit 後処理向け、PNG は劣化なし 8bit、JPEG はスマホ保存・共有向けの軽量出力として扱う。結果表示と等倍確認はブラウザ互換性のため常に PNG を使い、TIFF 選択時のみ TIFF エンコードを追加で実行する。
 - preview JPEG の位置合わせ方式は Web UI で `stars`（星検出・標準）と `akaze`（旧方式）を選択できる。`EstimateTransforms` の方式未指定または未知値は互換性のため `akaze` として扱う。変換モデルは `homography`（標準）と `affine`（互換・比較用）を選択でき、未指定または未知値は `homography` として扱う。
 - 位置合わせアルゴリズム改善は `spec/alignment-roadmap.md` を参照する。現在は `stars + homography` を標準として維持しながら、対応星残差可視化、局所ワープへ段階的に進める。通常 UI を過密にせず、詳細比較は CLI example または staging debug に寄せる。
-- ジョブ状態は現時点では Go API プロセス内メモリ管理。永続化、キャンセル、進捗 streaming は後続で実装する。
+- ジョブ状態は Compose / deploy 環境では Valkey 管理、`STELLA_COMP_QUEUE_URL` 未設定のローカル開発では Go API プロセス内メモリ管理。キャンセル、進捗 streaming、長期履歴は後続で実装する。
 - アップロード済み preview JPEG と `/api/jobs` の fallback 合成結果は Go API の cleanup worker が標準 24 時間 TTL で削除する。通常フローのブラウザ側 preview 合成 PNG は Blob URL で扱い、サーバーには保存しない。TTL と実行間隔は `STELLA_COMP_CLEANUP_TTL` / `STELLA_COMP_CLEANUP_INTERVAL` で変更できる。
 - Rust workspace の検証は `.mise.toml` の固定 Rust toolchain を使うため、`mise exec -- cargo check` や `mise exec -- cargo check -p worker` で実行する。素の `cargo` は環境側の古い toolchain を拾う可能性がある。
 - Rust workspace の検証には OpenCV と libclang/LLVM の開発パッケージが必要。`pkg-config --libs --cflags opencv4` または `OpenCVConfig.cmake` が解決できない環境、または `llvm-config` / libclang がない環境では `cargo check` が失敗する。

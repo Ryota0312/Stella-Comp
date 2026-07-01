@@ -47,6 +47,8 @@ services:
       STELLA_COMP_DATA_DIR: /data
       STELLA_COMP_WORKER_ADDR: worker:50051
       STELLA_COMP_QUEUE_URL: redis://valkey:6379/0
+      STELLA_COMP_ALIGNMENT_CONCURRENCY: "1"
+      STELLA_COMP_COMPOSITE_CONCURRENCY: "1"
     expose:
       - "8080"
     volumes:

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	apihttp "github.com/Ryota0312/stella-comp/apps/api/internal/transport/http"
 	"github.com/Ryota0312/stella-comp/apps/api/internal/usecase"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -19,6 +22,8 @@ const (
 	defaultWorkerAddress   = "[::1]:50051"
 	defaultCleanupTTL      = 24 * time.Hour
 	defaultCleanupInterval = time.Hour
+	defaultQueueConnectTTL = 30 * time.Second
+	defaultJobConcurrency  = 1
 )
 
 func main() {
@@ -53,8 +58,27 @@ func buildRouter(dataDir string, imageProcessor usecase.Processor) (*gin.Engine,
 		panic(err)
 	}
 
-	jobs := usecase.NewPreviewJobs(storage.DataDir, storage, imageProcessor)
+	jobs := newPreviewJobs(storage.DataDir, storage, imageProcessor)
+	jobs.StartWorkers(
+		context.Background(),
+		envIntOrDefault("STELLA_COMP_COMPOSITE_CONCURRENCY", defaultJobConcurrency),
+		envIntOrDefault("STELLA_COMP_ALIGNMENT_CONCURRENCY", defaultJobConcurrency),
+	)
 	return apihttp.NewRouter(storage, jobs, apihttp.RouterConfig{}), jobs
+}
+
+func newPreviewJobs(dataDir string, storage service.PreviewStorage, imageProcessor usecase.Processor) *usecase.PreviewJobs {
+	queueURL := strings.TrimSpace(os.Getenv("STELLA_COMP_QUEUE_URL"))
+	if queueURL == "" {
+		return usecase.NewPreviewJobs(dataDir, storage, imageProcessor)
+	}
+
+	client, err := usecase.NewRedisClientFromURL(queueURL)
+	if err != nil {
+		panic(err)
+	}
+	consumerName := envOrDefault("STELLA_COMP_QUEUE_CONSUMER", hostnameOrDefault("api"))
+	return usecase.NewPreviewJobsWithRedis(dataDir, storage, imageProcessor, waitForRedisBackend(client, consumerName))
 }
 
 func envOrDefault(key, fallback string) string {
@@ -81,6 +105,44 @@ func envDurationOrDefault(key string, fallback time.Duration) time.Duration {
 	return duration
 }
 
+func envIntOrDefault(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		log.Printf("invalid %s=%q: %v; using %d", key, value, err, fallback)
+		return fallback
+	}
+	return parsed
+}
+
+func hostnameOrDefault(fallback string) string {
+	hostname, err := os.Hostname()
+	if err != nil || strings.TrimSpace(hostname) == "" {
+		return fallback
+	}
+	return hostname
+}
+
+func waitForRedisBackend(client redis.UniversalClient, consumerName string) *usecase.RedisBackend {
+	timeout := envDurationOrDefault("STELLA_COMP_QUEUE_CONNECT_TIMEOUT", defaultQueueConnectTTL)
+	deadline := time.Now().Add(timeout)
+	for {
+		backend, err := usecase.NewRedisBackend(context.Background(), client, consumerName)
+		if err == nil {
+			return backend
+		}
+		if timeout <= 0 || time.Now().After(deadline) {
+			panic(err)
+		}
+		log.Printf("waiting for Valkey queue backend: %v", err)
+		time.Sleep(time.Second)
+	}
+}
+
 func startCleanupWorker(jobs *usecase.PreviewJobs, ttl time.Duration, interval time.Duration) {
 	if ttl <= 0 || interval <= 0 {
 		log.Printf("preview cleanup disabled ttl=%s interval=%s", ttl, interval)
@@ -89,18 +151,27 @@ func startCleanupWorker(jobs *usecase.PreviewJobs, ttl time.Duration, interval t
 
 	go func() {
 		runCleanup := func() {
-			result, err := jobs.CleanupExpired(time.Now().UTC(), ttl)
+			locked, err := jobs.CleanupLocker.WithCleanupLock(context.Background(), func() error {
+				result, err := jobs.CleanupExpired(time.Now().UTC(), ttl)
+				if err != nil {
+					return err
+				}
+				if result.DeletedPreviewSessions > 0 || result.DeletedCompositeJobs > 0 || result.DeletedAlignmentJobs > 0 {
+					log.Printf(
+						"preview cleanup removed sessions=%d compositeJobs=%d alignmentJobs=%d",
+						result.DeletedPreviewSessions,
+						result.DeletedCompositeJobs,
+						result.DeletedAlignmentJobs,
+					)
+				}
+				return nil
+			})
 			if err != nil {
 				log.Printf("preview cleanup failed: %v", err)
 				return
 			}
-			if result.DeletedPreviewSessions > 0 || result.DeletedCompositeJobs > 0 || result.DeletedAlignmentJobs > 0 {
-				log.Printf(
-					"preview cleanup removed sessions=%d compositeJobs=%d alignmentJobs=%d",
-					result.DeletedPreviewSessions,
-					result.DeletedCompositeJobs,
-					result.DeletedAlignmentJobs,
-				)
+			if !locked {
+				log.Printf("preview cleanup skipped because another worker holds the lock")
 			}
 		}
 
